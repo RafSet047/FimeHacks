@@ -1,0 +1,21 @@
+department_id,department_name,department_code,college,building,floor,phone_extension,email,department_head,annual_budget,faculty_count,staff_count,student_capacity,specialization_area,operating_hours,research_active,accreditation_status,last_review_date,student_satisfaction_score,annual_enrollment,research_budget,graduate_programs
+DEPT001,Computer Science,CS,Engineering,Tech Building,3,3001,cs@university.edu,Dr. Sarah Chen,2800000,45,12,850,Software Engineering,8:00-22:00,Yes,ABET Accredited,2024-01-15,4.6,820,450000,Yes
+DEPT002,Biology,BIO,Sciences,Science Hall,2,2501,biology@university.edu,Dr. Michael Rodriguez,3200000,52,15,920,Molecular Biology,7:00-21:00,Yes,ACS Certified,2024-02-20,4.4,890,580000,Yes
+DEPT003,Mathematics,MATH,Liberal Arts,Math Building,4,4001,math@university.edu,Dr. Lisa Johnson,1900000,38,8,650,Applied Mathematics,8:00-20:00,Yes,MAA Accredited,2024-01-10,4.5,625,280000,Yes
+DEPT004,Business Administration,BUS,Business,Business Center,2,2201,business@university.edu,Dr. James Wilson,2600000,42,18,1200,Finance,8:00-18:00,No,AACSB Accredited,2024-03-05,4.3,1150,180000,Yes
+DEPT005,Psychology,PSY,Liberal Arts,Liberal Arts Building,3,3301,psychology@university.edu,Dr. Emily Davis,2100000,35,10,780,Clinical Psychology,8:00-19:00,Yes,APA Accredited,2024-02-28,4.7,750,320000,Yes
+DEPT006,Engineering,ENG,Engineering,Engineering Complex,1,1101,engineering@university.edu,Dr. Maria Garcia,3800000,65,22,1100,Mechanical Engineering,24/7,Yes,ABET Accredited,2024-01-25,4.5,1050,720000,Yes
+DEPT007,Chemistry,CHEM,Sciences,Science Hall,3,3501,chemistry@university.edu,Dr. Robert Brown,2400000,28,12,480,Organic Chemistry,7:00-21:00,Yes,ACS Certified,2024-02-10,4.6,465,380000,Yes
+DEPT008,English Literature,ENG,Liberal Arts,Humanities Building,2,2801,english@university.edu,Dr. Jennifer Lee,1600000,32,8,920,Creative Writing,8:00-18:00,No,MLA Recognized,2024-03-01,4.4,885,120000,Yes
+DEPT009,Physics,PHYS,Sciences,Physics Building,4,4501,physics@university.edu,Dr. David Kim,2900000,40,16,520,Quantum Physics,8:00-22:00,Yes,APS Accredited,2024-01-20,4.5,495,520000,Yes
+DEPT010,History,HIST,Liberal Arts,Humanities Building,3,3801,history@university.edu,Dr. Susan Taylor,1400000,25,6,680,American History,8:00-18:00,No,AHA Recognized,2024-02-15,4.2,650,95000,Yes
+DEPT011,Art,ART,Fine Arts,Art Center,1,1601,art@university.edu,Dr. Thomas Anderson,1800000,30,12,450,Visual Arts,8:00-20:00,No,NASAD Accredited,2024-03-10,4.8,425,150000,No
+DEPT012,Music,MUS,Fine Arts,Music Hall,2,2701,music@university.edu,Dr. Karen White,1500000,22,8,380,Performance,8:00-22:00,No,NASM Accredited,2024-01-30,4.9,365,80000,Yes
+DEPT013,Political Science,POLI,Liberal Arts,Liberal Arts Building,4,4301,polisci@university.edu,Dr. Mark Thompson,1700000,28,7,720,International Relations,8:00-18:00,Yes,APSA Recognized,2024-02-25,4.3,695,140000,Yes
+DEPT014,Economics,ECON,Business,Business Center,3,3201,economics@university.edu,Dr. Rachel Green,2200000,32,10,650,Macroeconomics,8:00-18:00,Yes,AEA Recognized,2024-01-05,4.4,620,190000,Yes
+DEPT015,Nursing,NURS,Health Sciences,Health Sciences Building,2,2401,nursing@university.edu,Dr. Andrew Miller,2700000,38,16,520,Clinical Nursing,6:00-22:00,Yes,CCNE Accredited,2024-02-05,4.6,485,280000,Yes
+DEPT016,Education,EDU,Education,Education Building,3,3601,education@university.edu,Dr. Laura Wilson,2000000,35,12,850,Elementary Education,8:00-20:00,Yes,NCATE Accredited,2024-03-15,4.5,815,200000,Yes
+DEPT017,Social Work,SW,Liberal Arts,Liberal Arts Building,1,1801,socialwork@university.edu,Dr. Kevin Davis,1900000,26,10,420,Clinical Social Work,8:00-19:00,Yes,CSWE Accredited,2024-01-12,4.7,395,160000,Yes
+DEPT018,Philosophy,PHIL,Liberal Arts,Humanities Building,4,4801,philosophy@university.edu,Dr. Michelle Brown,1200000,18,4,320,Ethics,8:00-18:00,No,APA Recognized,2024-02-18,4.3,295,65000,Yes
+DEPT019,Theater,THEA,Fine Arts,Theater Building,1,1501,theater@university.edu,Dr. Christopher Lee,1600000,24,10,280,Performance Arts,8:00-23:00,No,NAST Accredited,2024-03-08,4.8,265,95000,No
+DEPT020,Environmental Science,ENV,Sciences,Science Hall,1,1701,environmental@university.edu,Dr. Amanda Johnson,2500000,30,14,420,Environmental Policy,8:00-20:00,Yes,NCES Recognized,2024-01-28,4.5,385,350000,Yes

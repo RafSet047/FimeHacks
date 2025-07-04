@@ -1,0 +1,21 @@
+building_id,building_name,building_type,floors,construction_year,renovation_year,total_rooms,department_id,capacity,square_footage,accessibility_compliant,wifi_available,hvac_system,security_level,parking_spaces,maintenance_cost_annual,energy_efficiency_rating,room_types,special_features,usage_hours,fire_safety_rating,last_inspection_date
+BLDG001,Tech Building,Academic,4,1998,2018,45,DEPT001,850,85000,Yes,Yes,Central HVAC,High,120,185000,B+,"Classrooms Labs Offices","Computer Labs Server Room",24/7,A,2024-01-15
+BLDG002,Science Hall,Academic,3,1995,2020,52,DEPT002,1200,95000,Yes,Yes,Zone Control,High,80,220000,A-,"Classrooms Labs Offices","Research Labs Clean Rooms",7:00-22:00,A,2024-02-10
+BLDG003,Math Building,Academic,4,1988,2015,38,DEPT003,650,65000,Yes,Yes,Central HVAC,Medium,60,145000,B,"Classrooms Offices","Study Rooms Tutoring Center",8:00-20:00,A,2024-01-25
+BLDG004,Business Center,Academic,3,2005,2022,48,DEPT004,1200,78000,Yes,Yes,Smart Climate,High,95,165000,A,"Classrooms Offices Auditorium","Trading Floor Conference Rooms",8:00-22:00,A,2024-03-05
+BLDG005,Liberal Arts Building,Academic,4,1975,2019,65,DEPT005,1800,98000,Yes,Yes,Upgraded HVAC,Medium,75,195000,B+,"Classrooms Offices","Language Lab Writing Center",8:00-20:00,A,2024-02-15
+BLDG006,Engineering Complex,Academic,5,2010,2024,85,DEPT006,1100,125000,Yes,Yes,Smart Building,High,150,285000,A+,"Classrooms Labs Offices","Fabrication Lab Wind Tunnel",24/7,A,2024-01-30
+BLDG007,Humanities Building,Academic,4,1982,2017,55,DEPT008,1500,88000,Yes,Yes,Zone Control,Medium,85,175000,B,"Classrooms Offices","Digital Media Lab",8:00-19:00,A,2024-02-20
+BLDG008,Physics Building,Academic,4,1992,2021,42,DEPT009,520,72000,Yes,Yes,Precision Climate,High,65,190000,A-,"Classrooms Labs Offices","Laser Lab Observatory",8:00-22:00,A,2024-01-18
+BLDG009,Art Center,Academic,2,1995,2016,35,DEPT011,450,58000,Yes,Yes,Central HVAC,Medium,45,125000,B,"Studios Classrooms Offices","Gallery Kiln Room",8:00-22:00,A,2024-03-01
+BLDG010,Music Hall,Academic,3,1985,2018,28,DEPT012,380,52000,Yes,Yes,Acoustic Control,Medium,35,115000,B+,"Practice Rooms Auditorium","Recording Studio Concert Hall",8:00-23:00,A,2024-01-22
+BLDG011,Health Sciences Building,Academic,3,2008,2023,45,DEPT015,520,68000,Yes,Yes,Medical Grade,High,70,195000,A,"Classrooms Labs Offices","Simulation Lab Skills Lab",6:00-22:00,A,2024-02-08
+BLDG012,Education Building,Academic,3,1990,2019,42,DEPT016,850,75000,Yes,Yes,Central HVAC,Medium,65,165000,B+,"Classrooms Offices","Curriculum Library",8:00-20:00,A,2024-03-10
+BLDG013,Theater Building,Academic,2,1978,2020,25,DEPT019,280,45000,Yes,Yes,Climate Control,Medium,30,145000,B,"Theater Dressing Rooms","Main Stage Black Box",8:00-24:00,A,2024-02-28
+BLDG014,Library,Academic,5,2000,2021,125,Multiple,2000,145000,Yes,Yes,Quiet Zones,High,180,325000,A+,"Study Rooms Stacks","Special Collections Digital Media",24/7,A,2024-01-12
+BLDG015,Student Union,Student Life,3,1995,2018,78,Multiple,1500,95000,Yes,Yes,Central HVAC,Medium,120,225000,B+,"Dining Meeting Rooms","Food Court Bookstore",6:00-24:00,A,2024-02-25
+BLDG016,Recreation Center,Student Life,2,2012,2024,45,Multiple,800,85000,Yes,Yes,Athletic Grade,Medium,95,185000,A,"Gym Pool Courts","Fitness Center Climbing Wall",5:00-23:00,A,2024-01-05
+BLDG017,Residence Hall North,Residential,4,1988,2016,120,Multiple,480,125000,Yes,Yes,Dorm Climate,Low,45,245000,B,"Dorm Rooms Lounges","Laundry Study Rooms",24/7,A,2024-03-15
+BLDG018,Residence Hall South,Residential,5,2005,2022,150,Multiple,600,155000,Yes,Yes,Smart Dorm,Low,55,265000,A-,"Dorm Rooms Lounges","Kitchen Community Rooms",24/7,A,2024-02-18
+BLDG019,Dining Hall,Student Life,2,1992,2019,35,Multiple,1200,42000,Yes,Yes,Commercial Grade,Medium,85,175000,B+,"Dining Kitchen","Multiple Restaurants Catering",6:00-22:00,A,2024-01-28
+BLDG020,Administration Building,Administrative,3,1985,2017,45,Multiple,200,58000,Yes,Yes,Office Grade,High,75,145000,B,"Offices Conference Rooms","President's Office Board Room",8:00-17:00,A,2024-02-12

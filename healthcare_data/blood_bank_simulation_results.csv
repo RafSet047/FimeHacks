@@ -1,0 +1,41 @@
+blood_type,product_type,total_demand,total_orders,total_stockouts,total_expired,current_inventory,reorder_point,order_quantity,safety_stock,lead_time_days,service_level_percent,waste_rate_percent
+O+,Whole Blood,265,10,0,507,585,32,85,8,3,100.0,46.43
+O+,Red Blood Cells,237,8,0,250,307,18,68,6,2,100.0,44.89
+O+,Plasma,249,4,0,0,55,8,76,4,1,100.0,0.0
+O+,Platelets,46,31,0,1008,1008,6,34,3,1,100.0,50.0
+O+,Cryoprecipitate,56,2,0,0,6,4,31,1,2,100.0,0.0
+O-,Whole Blood,44,9,0,249,280,7,36,3,3,100.0,47.07
+O-,Red Blood Cells,42,8,0,163,190,4,29,2,2,100.0,46.18
+O-,Plasma,17,1,0,0,16,1,33,1,1,100.0,0.0
+O-,Platelets,0,14,0,196,196,1,14,1,1,0.0,50.0
+O-,Cryoprecipitate,0,0,0,0,0,0,13,0,2,0.0,0.0
+A+,Whole Blood,213,9,0,387,444,24,73,6,3,100.0,46.58
+A+,Red Blood Cells,163,7,0,250,250,13,59,4,2,100.0,50.0
+A+,Plasma,190,3,0,0,8,6,66,3,1,100.0,0.0
+A+,Platelets,24,31,0,846,875,4,29,2,1,100.0,49.16
+A+,Cryoprecipitate,25,2,0,0,29,3,27,1,2,100.0,0.0
+A-,Whole Blood,18,9,0,222,222,4,30,1,3,100.0,50.0
+A-,Red Blood Cells,0,0,0,0,0,1,24,0,2,0.0,0.0
+A-,Plasma,0,0,0,0,0,0,27,0,1,0.0,0.0
+A-,Platelets,0,0,0,0,0,0,12,0,1,0.0,0.0
+A-,Cryoprecipitate,0,0,0,0,0,0,11,0,2,0.0,0.0
+B+,Whole Blood,54,9,0,282,324,8,42,2,3,100.0,46.54
+B+,Red Blood Cells,37,7,0,201,201,4,34,1,2,100.0,50.0
+B+,Plasma,49,2,0,0,27,2,38,1,1,100.0,0.0
+B+,Platelets,0,0,0,0,0,0,17,0,1,0.0,0.0
+B+,Cryoprecipitate,0,0,0,0,0,0,15,0,2,0.0,0.0
+B-,Whole Blood,0,0,0,0,0,0,16,0,3,0.0,0.0
+B-,Red Blood Cells,0,0,0,0,0,0,13,0,2,0.0,0.0
+B-,Plasma,0,0,0,0,0,0,14,0,1,0.0,0.0
+B-,Platelets,0,0,0,0,0,0,6,0,1,0.0,0.0
+B-,Cryoprecipitate,0,0,0,0,0,0,6,0,2,0.0,0.0
+AB+,Whole Blood,0,0,0,0,0,1,21,0,3,0.0,0.0
+AB+,Red Blood Cells,0,0,0,0,0,0,17,0,2,0.0,0.0
+AB+,Plasma,0,0,0,0,0,0,19,0,1,0.0,0.0
+AB+,Platelets,0,0,0,0,0,0,8,0,1,0.0,0.0
+AB+,Cryoprecipitate,0,0,0,0,0,0,7,0,2,0.0,0.0
+AB-,Whole Blood,0,0,0,0,0,0,13,0,3,0.0,0.0
+AB-,Red Blood Cells,0,0,0,0,0,0,10,0,2,0.0,0.0
+AB-,Plasma,0,0,0,0,0,0,12,0,1,0.0,0.0
+AB-,Platelets,0,0,0,0,0,0,5,0,1,0.0,0.0
+AB-,Cryoprecipitate,0,0,0,0,0,0,4,0,2,0.0,0.0

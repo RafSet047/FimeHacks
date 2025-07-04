@@ -1,0 +1,21 @@
+department_id,department_name,department_code,floor,building,wing,phone_extension,email,head_of_department,annual_budget,staff_count,bed_count,specialization_area,operating_hours,emergency_capable,accreditation_status,last_inspection_date,patient_satisfaction_score,monthly_patient_volume,equipment_budget,research_active
+001,Emergency Department,ED,1,Main Hospital,North,1001,emergency@hospital.com,Dr. Sarah Johnson,2500000,45,12,Emergency Medicine,24/7,Yes,ACEP Certified,2024-01-15,4.2,1250,150000,Yes
+002,Intensive Care Unit,ICU,3,Main Hospital,South,3001,icu@hospital.com,Dr. Michael Chen,3200000,38,20,Critical Care,24/7,Yes,AACN Certified,2024-02-20,4.5,320,200000,Yes
+003,Cardiology,CARD,2,Main Hospital,East,2001,cardio@hospital.com,Dr. Lisa Rodriguez,1800000,28,16,Cardiovascular,8:00-18:00,No,ACC Certified,2024-01-10,4.7,890,120000,Yes
+004,Orthopedics,ORTHO,4,Main Hospital,West,4001,ortho@hospital.com,Dr. James Wilson,2100000,32,24,Musculoskeletal,7:00-19:00,No,AAOS Certified,2024-03-05,4.3,560,180000,No
+005,Pediatrics,PEDS,2,Children's Wing,North,2501,pediatrics@hospital.com,Dr. Emily Davis,1600000,25,18,Pediatric Care,6:00-20:00,Yes,AAP Certified,2024-02-28,4.8,430,90000,Yes
+006,Obstetrics and Gynecology,OB-GYN,3,Women's Center,South,3501,obgyn@hospital.com,Dr. Maria Garcia,1900000,30,22,Women's Health,24/7,Yes,ACOG Certified,2024-01-25,4.6,650,110000,No
+007,Oncology,ONCO,5,Cancer Center,East,5001,oncology@hospital.com,Dr. Robert Brown,2800000,42,28,Cancer Treatment,7:00-21:00,No,ASCO Certified,2024-02-10,4.4,380,250000,Yes
+008,Neurology,NEURO,4,Main Hospital,North,4501,neuro@hospital.com,Dr. Jennifer Lee,2200000,26,14,Neurological,8:00-18:00,No,AAN Certified,2024-03-01,4.5,290,140000,Yes
+009,Surgery,SURG,5,Main Hospital,Central,5501,surgery@hospital.com,Dr. David Kim,3500000,55,8,Surgical Procedures,24/7,Yes,ACS Certified,2024-01-20,4.3,780,300000,No
+010,Radiology,RAD,1,Main Hospital,West,1501,radiology@hospital.com,Dr. Susan Taylor,2000000,22,0,Medical Imaging,24/7,Yes,ACR Certified,2024-02-15,4.6,1100,350000,Yes
+011,Laboratory,LAB,1,Main Hospital,South,1701,lab@hospital.com,Dr. Thomas Anderson,1500000,35,0,Clinical Testing,24/7,Yes,CAP Certified,2024-03-10,4.4,2200,180000,Yes
+012,Pharmacy,PHARM,2,Main Hospital,Central,2701,pharmacy@hospital.com,Dr. Karen White,800000,18,0,Medication Management,24/7,No,ASHP Certified,2024-01-30,4.7,3500,60000,No
+013,Rehabilitation,REHAB,6,Rehab Center,North,6001,rehab@hospital.com,Dr. Mark Thompson,1200000,20,15,Physical Therapy,6:00-22:00,No,APTA Certified,2024-02-25,4.5,180,75000,No
+014,Psychiatry,PSYCH,7,Mental Health Wing,East,7001,psychiatry@hospital.com,Dr. Rachel Green,1400000,24,12,Mental Health,8:00-20:00,Yes,APA Certified,2024-01-05,4.2,160,50000,Yes
+015,Dermatology,DERM,3,Main Hospital,West,3701,dermatology@hospital.com,Dr. Andrew Miller,900000,12,0,Skin Conditions,8:00-17:00,No,AAD Certified,2024-02-05,4.8,320,40000,No
+016,Gastroenterology,GI,4,Main Hospital,South,4701,gastro@hospital.com,Dr. Laura Wilson,1300000,16,6,Digestive System,7:00-18:00,No,AGA Certified,2024-03-15,4.4,280,85000,Yes
+017,Pulmonology,PULM,5,Main Hospital,West,5701,pulmonology@hospital.com,Dr. Kevin Davis,1100000,14,10,Respiratory System,8:00-18:00,No,ATS Certified,2024-01-12,4.6,220,70000,No
+018,Endocrinology,ENDO,6,Main Hospital,East,6701,endocrinology@hospital.com,Dr. Michelle Brown,1000000,13,4,Hormonal Disorders,8:00-17:00,No,AACE Certified,2024-02-18,4.5,190,45000,Yes
+019,Urology,URO,4,Main Hospital,East,4801,urology@hospital.com,Dr. Christopher Lee,1250000,15,8,Urinary System,7:00-19:00,No,AUA Certified,2024-03-08,4.3,210,65000,No
+020,Ophthalmology,OPHT,3,Main Hospital,North,3801,ophthalmology@hospital.com,Dr. Amanda Johnson,950000,11,0,Eye Care,8:00-17:00,No,AAO Certified,2024-01-28,4.9,280,55000,No
