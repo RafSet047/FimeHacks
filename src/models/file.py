@@ -20,8 +20,14 @@ class File(Base):
     mime_type = Column(String, nullable=True)
     
     # Processing status
-    status = Column(String, default="uploaded")  # uploaded, processing, processed, failed
+    status = Column(String, default="uploaded")  # uploaded, processing, processed, failed, indexed
     processing_error = Column(Text, nullable=True)
+    processing_started_at = Column(DateTime, nullable=True)
+    processing_completed_at = Column(DateTime, nullable=True)
+    processing_duration_seconds = Column(Float, nullable=True)
+    content_extracted = Column(Boolean, default=False)
+    content_indexed = Column(Boolean, default=False)
+    retry_count = Column(Integer, default=0)
     
     # Organizational metadata (kept for backward compatibility)
     department = Column(String, nullable=True)

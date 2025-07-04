@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, DateTime, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.database.connection import Base
@@ -17,10 +17,23 @@ class Content(Base):
     content_type = Column(String, nullable=False)  # text, summary, transcript, description
     content_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, default=0)
+    total_chunks = Column(Integer, default=1)
     
     # Processing metadata
     processing_method = Column(String, nullable=True)  # openai, anthropic, google
     confidence_score = Column(Float, nullable=True)
+    processing_metadata = Column(JSON, nullable=True)
+    
+    # Content summary and analysis
+    content_summary = Column(Text, nullable=True)
+    extracted_keywords = Column(Text, nullable=True)  # JSON string of keywords
+    language_detected = Column(String, nullable=True)
+    
+    # Embeddings storage
+    has_embeddings = Column(Boolean, default=False)
+    embedding_model = Column(String, nullable=True)  # model used for embeddings
+    embedding_dimension = Column(Integer, nullable=True)
+    vector_id = Column(String, nullable=True)  # ChromaDB vector ID
     
     # Timestamps
     created_at = Column(DateTime, default=func.now())

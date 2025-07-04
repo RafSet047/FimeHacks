@@ -81,6 +81,35 @@ storage/
 🎉 Test completed successfully!
 ```
 
+## Milvus Database Examples
+
+This directory also contains examples for the Milvus Vector Database system:
+
+### Database Examples
+
+- `demo_milvus_database.py` - Comprehensive demo of Pydantic-based Milvus database
+- `init_milvus_database.py` - Initialize and setup Milvus database with collections
+- `run_tests.py` - Test runner script for database tests
+
+### Usage
+
+```bash
+# Initialize the database
+python examples/init_milvus_database.py
+
+# Run the comprehensive demo
+python examples/demo_milvus_database.py
+
+# Run all tests
+python examples/run_tests.py
+```
+
+### Requirements
+
+For Milvus database examples, you'll need:
+- Milvus dependencies: `pip install -r requirements_milvus.txt`
+- Milvus server running: `docker run -p 19530:19530 milvusdb/milvus:latest`
+
 ## Adding More Test Scripts
 
 To add more standalone test scripts:
