@@ -18,6 +18,7 @@ from src.services.file_upload import FileValidator, FileStorage, FileUploadServi
 from src.database.connection import get_db, init_db
 from src.config.settings import settings
 from src.database.crud import file_crud
+from src.models.metadata import FileMetadata, DocumentType, ContentCategory, EmployeeRole, PriorityLevel, AccessLevel
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -48,6 +49,23 @@ def upload_service():
 def test_content():
     """Test file content"""
     return b"Hello, World! This is a test file."
+
+
+@pytest.fixture
+def test_metadata():
+    """Test file metadata"""
+    return FileMetadata(
+        department="test_department",
+        uploaded_by="test_user",
+        employee_role=EmployeeRole.STAFF,
+        document_type=DocumentType.REPORT,
+        content_category=ContentCategory.ADMINISTRATIVE,
+        priority_level=PriorityLevel.MEDIUM,
+        access_level=AccessLevel.INTERNAL,
+        project_name="test_project",
+        tags=["test", "validation", "automated"],
+        description="Test file for validation"
+    )
 
 
 @pytest.fixture
@@ -137,7 +155,7 @@ class TestFileStorage:
 class TestDatabaseIntegration:
     """Test database integration"""
     
-    def test_create_and_retrieve_file_record(self, db_session, storage, test_content):
+    def test_create_and_retrieve_file_record(self, db_session, storage, test_content, test_metadata):
         """Test creating and retrieving file records"""
         file_id = storage.generate_file_id()
         file_path = storage.generate_file_path(file_id, "test.txt")
@@ -151,26 +169,30 @@ class TestDatabaseIntegration:
             "file_type": "txt",
             "mime_type": "text/plain",
             "status": "uploaded",
-            "department": "test_dept",
-            "project": "test_project",
-            "tags": "test,validation"
+            "department": test_metadata.department,
+            "project": test_metadata.project_name,
+            "tags": ",".join(test_metadata.tags),
+            "file_metadata": test_metadata.to_dict()
         }
         
         # Create file record
         db_file = file_crud.create_file(db_session, test_file_data)
         assert db_file.id is not None
         assert db_file.file_id == file_id
+        assert db_file.file_metadata is not None
+        assert db_file.file_metadata["department"] == test_metadata.department
         
         # Test file retrieval
         retrieved_file = file_crud.get_file_by_id(db_session, file_id)
         assert retrieved_file is not None
         assert retrieved_file.filename == f"{file_id}.txt"
+        assert retrieved_file.file_metadata["uploaded_by"] == test_metadata.uploaded_by
         
         # Clean up
         file_crud.delete_file(db_session, file_id)
     
     @pytest.mark.asyncio
-    async def test_file_info_service(self, upload_service, db_session, storage, test_content):
+    async def test_file_info_service(self, upload_service, db_session, storage, test_content, test_metadata):
         """Test file info service"""
         file_id = storage.generate_file_id()
         file_path = storage.generate_file_path(file_id, "test.txt")
@@ -183,7 +205,11 @@ class TestDatabaseIntegration:
             "file_size": len(test_content),
             "file_type": "txt",
             "mime_type": "text/plain",
-            "status": "uploaded"
+            "status": "uploaded",
+            "department": test_metadata.department,
+            "project": test_metadata.project_name,
+            "tags": ",".join(test_metadata.tags),
+            "file_metadata": test_metadata.to_dict()
         }
         
         # Create file record
@@ -194,6 +220,7 @@ class TestDatabaseIntegration:
         assert file_info is not None
         assert file_info['original_filename'] == "test.txt"
         assert file_info['file_id'] == file_id
+        assert file_info['metadata']['department'] == test_metadata.department
         
         # Clean up
         file_crud.delete_file(db_session, file_id)
@@ -203,7 +230,7 @@ class TestCompleteUploadWorkflow:
     """Test complete upload workflow"""
     
     @pytest.mark.asyncio
-    async def test_complete_upload_workflow(self, upload_service, db_session, test_content):
+    async def test_complete_upload_workflow(self, upload_service, db_session, test_content, test_metadata):
         """Test complete file upload workflow"""
         
         # Mock UploadFile
@@ -225,23 +252,137 @@ class TestCompleteUploadWorkflow:
         result = await upload_service.upload_file(
             file=mock_file,
             db=db_session,
-            department="test_department",
-            project="test_project",
-            tags=["test", "upload", "validation"]
+            file_metadata=test_metadata
         )
         
         assert result['success'] is True
         assert 'file_id' in result
         assert result['filename'] == "test_upload.txt"
         assert result['file_type'] == "txt"
+        assert result['department'] == test_metadata.department
+        assert result['uploaded_by'] == test_metadata.uploaded_by
+        assert result['employee_role'] == test_metadata.employee_role
+        assert result['document_type'] == test_metadata.document_type
+        assert result['content_category'] == test_metadata.content_category
+        assert result['priority_level'] == test_metadata.priority_level
+        assert result['access_level'] == test_metadata.access_level
+        assert result['tags'] == test_metadata.tags
+        assert result['file_metadata'] == test_metadata.to_dict()
         
         # Verify file exists in storage
         file_info = await upload_service.get_file_info(result['file_id'], db_session)
         assert file_info is not None
+        assert file_info['metadata']['uploaded_by'] == test_metadata.uploaded_by
         
         # Clean up
         success = await upload_service.delete_file(result['file_id'], db_session)
         assert success is True
+    
+    @pytest.mark.asyncio
+    async def test_healthcare_metadata_workflow(self, upload_service, db_session, test_content):
+        """Test healthcare-specific metadata workflow"""
+        from src.models.metadata import HealthcareMetadata
+        
+        healthcare_metadata = HealthcareMetadata(
+            specialty="cardiology",
+            patient_id="P12345",
+            physician_id="DOC001",
+            hospital_unit="ICU"
+        )
+        
+        file_metadata = FileMetadata(
+            department="cardiology",
+            uploaded_by="Dr. Smith",
+            employee_role=EmployeeRole.DOCTOR,
+            document_type=DocumentType.PATIENT_RECORD,
+            content_category=ContentCategory.CLINICAL,
+            priority_level=PriorityLevel.HIGH,
+            access_level=AccessLevel.RESTRICTED,
+            domain_type="healthcare",
+            healthcare_metadata=healthcare_metadata,
+            tags=["cardiac", "emergency"]
+        )
+        
+        class MockUploadFile:
+            def __init__(self, filename, content):
+                self.filename = filename
+                self._content = content
+            
+            async def read(self):
+                return self._content
+            
+            async def seek(self, position):
+                pass
+        
+        mock_file = MockUploadFile("patient_record.txt", test_content)
+        
+        # Test upload
+        result = await upload_service.upload_file(
+            file=mock_file,
+            db=db_session,
+            file_metadata=file_metadata
+        )
+        
+        assert result['success'] is True
+        assert result['file_metadata']['domain_type'] == "healthcare"
+        assert result['file_metadata']['healthcare_metadata']['specialty'] == "cardiology"
+        assert result['file_metadata']['healthcare_metadata']['patient_id'] == "P12345"
+        
+        # Clean up
+        await upload_service.delete_file(result['file_id'], db_session)
+    
+    @pytest.mark.asyncio
+    async def test_university_metadata_workflow(self, upload_service, db_session, test_content):
+        """Test university-specific metadata workflow"""
+        from src.models.metadata import UniversityMetadata
+        
+        university_metadata = UniversityMetadata(
+            course_code="CS101",
+            semester="Fall 2024",
+            academic_year="2024-2025",
+            faculty_id="PROF001"
+        )
+        
+        file_metadata = FileMetadata(
+            department="computer_science",
+            uploaded_by="Prof. Johnson",
+            employee_role=EmployeeRole.FACULTY,
+            document_type=DocumentType.LECTURE,
+            content_category=ContentCategory.ACADEMIC,
+            priority_level=PriorityLevel.MEDIUM,
+            access_level=AccessLevel.INTERNAL,
+            domain_type="university",
+            university_metadata=university_metadata,
+            tags=["programming", "lecture"]
+        )
+        
+        class MockUploadFile:
+            def __init__(self, filename, content):
+                self.filename = filename
+                self._content = content
+            
+            async def read(self):
+                return self._content
+            
+            async def seek(self, position):
+                pass
+        
+        mock_file = MockUploadFile("lecture_notes.txt", test_content)
+        
+        # Test upload
+        result = await upload_service.upload_file(
+            file=mock_file,
+            db=db_session,
+            file_metadata=file_metadata
+        )
+        
+        assert result['success'] is True
+        assert result['file_metadata']['domain_type'] == "university"
+        assert result['file_metadata']['university_metadata']['course_code'] == "CS101"
+        assert result['file_metadata']['university_metadata']['semester'] == "Fall 2024"
+        
+        # Clean up
+        await upload_service.delete_file(result['file_id'], db_session)
 
 
 if __name__ == "__main__":

@@ -8,10 +8,15 @@ import aiofiles
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
+import logging
 from src.config.settings import settings
 from src.database.crud import file_crud
-from src.utils.logging import logger
+from src.utils.logging import setup_logging
 from src.services.file_processor import content_router
+from src.models.metadata import FileMetadata, ProcessingMetadata
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Try to import magic, use fallback if not available
 try:
@@ -249,9 +254,7 @@ class FileUploadService:
         self, 
         file: UploadFile, 
         db: Session,
-        department: Optional[str] = None,
-        project: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        file_metadata: FileMetadata
     ) -> Dict[str, Any]:
         """
         Upload and process a file
@@ -259,9 +262,7 @@ class FileUploadService:
         Args:
             file: FastAPI UploadFile object
             db: Database session
-            department: Optional department tag
-            project: Optional project tag
-            tags: Optional list of tags
+            file_metadata: Complete file metadata structure
             
         Returns:
             Dictionary with upload results
@@ -312,9 +313,10 @@ class FileUploadService:
                 "file_type": validation_result["type_info"]["extension"],
                 "mime_type": validation_result["type_info"]["mime_type"],
                 "status": "uploaded",
-                "department": department,
-                "project": project,
-                "tags": ",".join(tags) if tags else None
+                "department": file_metadata.department,
+                "project": file_metadata.project_name,
+                "tags": ",".join(file_metadata.tags) if file_metadata.tags else None,
+                "file_metadata": file_metadata.to_dict()
             }
             
             # Save to database
@@ -327,15 +329,16 @@ class FileUploadService:
                     file_path=storage_result["file_path"],
                     filename=file.filename,
                     mime_type=validation_result["type_info"]["mime_type"],
+                    file_metadata=file_metadata,
                     db=db
                 )
                 processing_info = {
                     "processing_queued": True,
-                    "content_type": processing_job.content_type.value,
+                    "content_type": processing_job.content_type,
                     "processing_priority": processing_job.priority,
-                    "estimated_processing_time": processing_job.metadata.get("estimated_time", 0)
+                    "estimated_processing_time": processing_job.workflow_metadata.get("estimated_time", 0)
                 }
-                logger.info(f"File {file_id} queued for processing as {processing_job.content_type.value}")
+                logger.info(f"File {file_id} from {file_metadata.department} queued for processing as {processing_job.content_type}")
             except Exception as e:
                 logger.error(f"Failed to queue file {file_id} for processing: {e}")
                 processing_info = {
@@ -356,9 +359,16 @@ class FileUploadService:
                 "mime_type": validation_result["type_info"]["mime_type"],
                 "file_hash": storage_result["file_hash"],
                 "database_id": db_file.id,
-                "department": department,
-                "project": project,
-                "tags": tags or [],
+                "department": file_metadata.department,
+                "project": file_metadata.project_name,
+                "tags": file_metadata.tags,
+                "employee_role": file_metadata.employee_role,
+                "uploaded_by": file_metadata.uploaded_by,
+                "document_type": file_metadata.document_type,
+                "content_category": file_metadata.content_category,
+                "priority_level": file_metadata.priority_level,
+                "access_level": file_metadata.access_level,
+                "file_metadata": file_metadata.to_dict(),
                 "message": "File uploaded successfully",
                 **processing_info
             }
@@ -389,6 +399,7 @@ class FileUploadService:
                 "department": db_file.department,
                 "project": db_file.project,
                 "tags": db_file.tags.split(",") if db_file.tags else [],
+                "metadata": db_file.file_metadata,
                 "created_at": db_file.created_at.isoformat(),
                 "updated_at": db_file.updated_at.isoformat()
             }

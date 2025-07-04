@@ -6,8 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from src.utils.logging import logger
+import logging
+from src.utils.logging import setup_logging
 from src.database.crud import file_crud
+from src.models.metadata import FileMetadata, ProcessingMetadata
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 class ContentType(Enum):
@@ -32,19 +37,23 @@ class ProcessingJob:
     file_id: str
     file_path: str
     content_type: ContentType
+    file_metadata: FileMetadata
     priority: int = 1
     created_at: datetime = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     status: ProcessingStatus = ProcessingStatus.PENDING
     error_message: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    processing_metadata: ProcessingMetadata = None
+    workflow_metadata: Dict[str, Any] = None
     
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.now()
-        if self.metadata is None:
-            self.metadata = {}
+        if self.processing_metadata is None:
+            self.processing_metadata = ProcessingMetadata()
+        if self.workflow_metadata is None:
+            self.workflow_metadata = {}
 
 
 class ContentTypeClassifier:
@@ -115,43 +124,121 @@ class ProcessingWorkflow:
         return self.workflows.get(content_type, self._unknown_workflow)
     
     def _text_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
+        # Use metadata to influence workflow
+        priority = 1
+        if job.file_metadata.priority_level == "urgent":
+            priority = 0
+        elif job.file_metadata.priority_level == "critical":
+            priority = 0
+        
+        steps = ["extract_text_content", "generate_text_preview", "analyze_text_structure", "extract_keywords", "generate_embeddings"]
+        
+        # Add domain-specific steps
+        if job.file_metadata.domain_type == "healthcare":
+            steps.extend(["extract_medical_entities", "analyze_medical_terminology"])
+        elif job.file_metadata.domain_type == "university":
+            steps.extend(["extract_academic_entities", "analyze_citations"])
+        
         return {
-            "steps": ["extract_text_content", "generate_text_preview", "analyze_text_structure", "extract_keywords", "generate_embeddings"],
-            "priority": 1,
+            "steps": steps,
+            "priority": priority,
             "estimated_time": 30,
-            "requires_external_api": True
+            "requires_external_api": True,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
     
     def _document_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
+        priority = 2
+        if job.file_metadata.priority_level in ["urgent", "critical"]:
+            priority = 1
+        
+        steps = ["extract_document_metadata", "convert_to_text", "generate_document_preview", "extract_structure", "generate_embeddings"]
+        
+        # Add domain-specific steps
+        if job.file_metadata.domain_type == "healthcare":
+            steps.extend(["extract_medical_entities", "analyze_medical_protocols"])
+        elif job.file_metadata.domain_type == "university":
+            steps.extend(["extract_academic_content", "analyze_research_data"])
+        
         return {
-            "steps": ["extract_document_metadata", "convert_to_text", "generate_document_preview", "extract_structure", "generate_embeddings"],
-            "priority": 2,
+            "steps": steps,
+            "priority": priority,
             "estimated_time": 120,
-            "requires_external_api": True
+            "requires_external_api": True,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
     
     def _image_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
+        priority = 3
+        if job.file_metadata.priority_level in ["urgent", "critical"]:
+            priority = 2
+        
+        steps = ["extract_image_metadata", "generate_thumbnail", "analyze_image_content", "extract_text_from_image", "generate_image_embeddings"]
+        
+        # Add domain-specific steps
+        if job.file_metadata.domain_type == "healthcare":
+            steps.extend(["analyze_medical_imagery", "extract_diagnostic_info"])
+        elif job.file_metadata.domain_type == "university":
+            steps.extend(["analyze_research_images", "extract_experimental_data"])
+        
         return {
-            "steps": ["extract_image_metadata", "generate_thumbnail", "analyze_image_content", "extract_text_from_image", "generate_image_embeddings"],
-            "priority": 3,
+            "steps": steps,
+            "priority": priority,
             "estimated_time": 60,
-            "requires_external_api": True
+            "requires_external_api": True,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
     
     def _audio_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
+        priority = 4
+        if job.file_metadata.priority_level in ["urgent", "critical"]:
+            priority = 3
+        
+        steps = ["extract_audio_metadata", "transcribe_audio", "analyze_audio_content", "generate_audio_preview", "generate_embeddings"]
+        
+        # Add domain-specific steps
+        if job.file_metadata.domain_type == "healthcare":
+            steps.extend(["analyze_medical_recordings", "extract_patient_interactions"])
+        elif job.file_metadata.domain_type == "university":
+            steps.extend(["analyze_lecture_content", "extract_educational_segments"])
+        
         return {
-            "steps": ["extract_audio_metadata", "transcribe_audio", "analyze_audio_content", "generate_audio_preview", "generate_embeddings"],
-            "priority": 4,
+            "steps": steps,
+            "priority": priority,
             "estimated_time": 180,
-            "requires_external_api": True
+            "requires_external_api": True,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
     
     def _video_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
+        priority = 5
+        if job.file_metadata.priority_level in ["urgent", "critical"]:
+            priority = 4
+        
+        steps = ["extract_video_metadata", "extract_video_frames", "transcribe_audio_track", "analyze_video_content", "generate_video_preview", "generate_embeddings"]
+        
+        # Add domain-specific steps
+        if job.file_metadata.domain_type == "healthcare":
+            steps.extend(["analyze_medical_procedures", "extract_surgical_steps"])
+        elif job.file_metadata.domain_type == "university":
+            steps.extend(["analyze_lecture_videos", "extract_presentation_slides"])
+        
         return {
-            "steps": ["extract_video_metadata", "extract_video_frames", "transcribe_audio_track", "analyze_video_content", "generate_video_preview", "generate_embeddings"],
-            "priority": 5,
+            "steps": steps,
+            "priority": priority,
             "estimated_time": 300,
-            "requires_external_api": True
+            "requires_external_api": True,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
     
     def _unknown_workflow(self, job: ProcessingJob) -> Dict[str, Any]:
@@ -159,7 +246,10 @@ class ProcessingWorkflow:
             "steps": ["extract_basic_metadata", "attempt_content_detection", "generate_file_summary"],
             "priority": 10,
             "estimated_time": 15,
-            "requires_external_api": False
+            "requires_external_api": False,
+            "domain_context": job.file_metadata.domain_type,
+            "department": job.file_metadata.department,
+            "content_category": job.file_metadata.content_category
         }
 
 
@@ -176,7 +266,7 @@ class ProcessingQueue:
         async with self._lock:
             self.pending_jobs.append(job)
             self.pending_jobs.sort(key=lambda x: x.priority)
-            logger.info(f"Added job {job.file_id} to processing queue")
+            logger.info(f"Added job {job.file_id} from {job.file_metadata.department} to processing queue")
     
     async def get_next_job(self) -> Optional[ProcessingJob]:
         async with self._lock:
@@ -191,7 +281,7 @@ class ProcessingQueue:
             job.started_at = datetime.now()
             self.active_jobs.append(job)
             
-            logger.info(f"Started processing job {job.file_id}")
+            logger.info(f"Started processing job {job.file_id} from {job.file_metadata.department}")
             return job
     
     async def complete_job(self, job: ProcessingJob, success: bool = True, error_message: str = None):
@@ -204,12 +294,12 @@ class ProcessingQueue:
             if success:
                 job.status = ProcessingStatus.COMPLETED
                 self.completed_jobs.append(job)
-                logger.info(f"Completed job {job.file_id}")
+                logger.info(f"Completed job {job.file_id} from {job.file_metadata.department}")
             else:
                 job.status = ProcessingStatus.FAILED
                 job.error_message = error_message
                 self.failed_jobs.append(job)
-                logger.error(f"Failed job {job.file_id}: {error_message}")
+                logger.error(f"Failed job {job.file_id} from {job.file_metadata.department}: {error_message}")
     
     async def get_queue_status(self) -> Dict[str, Any]:
         async with self._lock:
@@ -234,6 +324,7 @@ class ContentTypeRouter:
         file_path: str, 
         filename: str, 
         mime_type: str,
+        file_metadata: FileMetadata,
         db: Session
     ) -> ProcessingJob:
         try:
@@ -244,18 +335,19 @@ class ContentTypeRouter:
             job = ProcessingJob(
                 file_id=file_id,
                 file_path=file_path,
-                content_type=content_type
+                content_type=content_type,
+                file_metadata=file_metadata
             )
             
             workflow_config = workflow_func(job)
-            job.metadata.update(workflow_config)
+            job.workflow_metadata = workflow_config
             job.priority = workflow_config.get("priority", 5)
             
             await self.processing_queue.add_job(job)
             
             file_crud.update_file_status(db, file_id, "processing")
             
-            logger.info(f"Routed file {file_id} ({content_type.value}) for processing")
+            logger.info(f"Routed file {file_id} from {file_metadata.department} ({content_type.value}) for processing")
             return job
             
         except Exception as e:
@@ -268,9 +360,30 @@ class ContentTypeRouter:
             return None
         
         try:
-            logger.info(f"Processing job {job.file_id} with workflow steps: {job.metadata.get('steps', [])}")
+            # Update processing metadata
+            job.processing_metadata.processing_started_at = datetime.now()
+            job.processing_metadata.processing_steps = job.workflow_metadata.get('steps', [])
+            job.processing_metadata.apis_used = []
             
-            await asyncio.sleep(1)
+            logger.info(f"Processing job {job.file_id} from {job.file_metadata.department} with workflow steps: {job.workflow_metadata.get('steps', [])}")
+            
+            # Simulate processing based on content type and domain
+            processing_time = job.workflow_metadata.get('estimated_time', 30) / 30  # Scale down for demo
+            await asyncio.sleep(processing_time)
+            
+            # Update processing metadata on completion
+            job.processing_metadata.processing_completed_at = datetime.now()
+            job.processing_metadata.content_extracted = True
+            job.processing_metadata.processing_duration_seconds = (
+                job.processing_metadata.processing_completed_at - 
+                job.processing_metadata.processing_started_at
+            ).total_seconds()
+            
+            # Mark specific APIs as used based on workflow
+            if job.workflow_metadata.get('requires_external_api', False):
+                job.processing_metadata.apis_used = ['openai', 'anthropic']
+                if job.content_type == ContentType.IMAGE:
+                    job.processing_metadata.apis_used.append('google_vision')
             
             await self.processing_queue.complete_job(job, success=True)
             file_crud.update_file_status(db, job.file_id, "processed")
@@ -278,6 +391,8 @@ class ContentTypeRouter:
             return job
             
         except Exception as e:
+            job.processing_metadata.error_occurred = True
+            job.processing_metadata.error_message = str(e)
             await self.processing_queue.complete_job(job, success=False, error_message=str(e))
             file_crud.update_file_status(db, job.file_id, "failed")
             raise

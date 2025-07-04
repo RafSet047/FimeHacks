@@ -2,7 +2,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from src.models import File, Content, SearchIndex
 import logging
+from src.utils.logging import setup_logging
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 

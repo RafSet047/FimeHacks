@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float, JSON
 from sqlalchemy.sql import func
 from src.database.connection import Base
 from datetime import datetime
@@ -22,10 +22,13 @@ class File(Base):
     status = Column(String, default="uploaded")  # uploaded, processing, processed, failed
     processing_error = Column(Text, nullable=True)
     
-    # Organizational metadata
+    # Organizational metadata (kept for backward compatibility)
     department = Column(String, nullable=True)
     project = Column(String, nullable=True)
     tags = Column(Text, nullable=True)  # JSON string of tags
+    
+    # Complete metadata structure (renamed to avoid SQLAlchemy reserved name)
+    file_metadata = Column(JSON, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=func.now())
