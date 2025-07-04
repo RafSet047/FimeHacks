@@ -7,6 +7,7 @@ import uuid
 
 class Content(Base):
     __tablename__ = "content"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     content_id = Column(String, unique=True, index=True, default=lambda: str(uuid.uuid4()))

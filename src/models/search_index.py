@@ -7,6 +7,7 @@ import uuid
 
 class SearchIndex(Base):
     __tablename__ = "search_index"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     index_id = Column(String, unique=True, index=True, default=lambda: str(uuid.uuid4()))

@@ -322,7 +322,7 @@ class FileUploadService:
             # Save to database
             db_file = file_crud.create_file(db, file_data)
             
-            # Route file for processing
+            # Process file immediately (simplified for hackathon)
             try:
                 processing_job = await content_router.route_file_for_processing(
                     file_id=file_id,
@@ -332,17 +332,26 @@ class FileUploadService:
                     file_metadata=file_metadata,
                     db=db
                 )
+                
+                # Process immediately
+                completed_job = await content_router.process_job(processing_job, db)
+                
                 processing_info = {
-                    "processing_queued": True,
-                    "content_type": processing_job.content_type,
-                    "processing_priority": processing_job.priority,
-                    "estimated_processing_time": processing_job.workflow_metadata.get("estimated_time", 0)
+                    "processing_completed": completed_job.status.value == "completed",
+                    "content_type": processing_job.content_type.value,
+                    "processing_time": completed_job.processing_metadata.processing_duration_seconds or 0,
+                    "error_message": completed_job.error_message
                 }
-                logger.info(f"File {file_id} from {file_metadata.department} queued for processing as {processing_job.content_type}")
+                
+                if completed_job.status.value == "completed":
+                    logger.info(f"File {file_id} from {file_metadata.department} processed successfully as {processing_job.content_type.value}")
+                else:
+                    logger.error(f"File {file_id} processing failed: {completed_job.error_message}")
+                    
             except Exception as e:
-                logger.error(f"Failed to queue file {file_id} for processing: {e}")
+                logger.error(f"Failed to process file {file_id}: {e}")
                 processing_info = {
-                    "processing_queued": False,
+                    "processing_completed": False,
                     "processing_error": str(e)
                 }
             

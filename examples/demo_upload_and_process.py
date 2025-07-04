@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demo: File Upload + Processing Integration with Metadata
+Demo: File Upload + Processing Integration with Metadata (Simplified)
 Shows how upload automatically triggers processing with comprehensive metadata
 """
 
@@ -37,11 +37,11 @@ def create_test_files():
     Key features:
     - Comprehensive metadata structure
     - Domain-specific processing workflows
-    - Priority-based processing queue
+    - Priority-based processing
     - Role-based access control preparation
-    - Background processing with detailed tracking
+    - Automated processing with detailed tracking
     
-    This text should be processed quickly since it has priority 1.
+    This text should be processed quickly with our simplified workflow.
     """
     
     # Create a simple "document" (HTML file treated as document)
@@ -59,7 +59,7 @@ def create_test_files():
         <ul>
             <li>Metadata-driven processing</li>
             <li>Domain-specific workflows</li>
-            <li>Priority-based queue management</li>
+            <li>Priority-based processing</li>
             <li>Comprehensive audit trail</li>
         </ul>
     </body>
@@ -209,9 +209,17 @@ def load_cli_file(file_path: str):
         return []
 
 
+def safe_enum_value(enum_obj):
+    """Safely get enum value"""
+    try:
+        return enum_obj.value if hasattr(enum_obj, 'value') else str(enum_obj)
+    except:
+        return str(enum_obj)
+
+
 async def demo_upload_and_process(cli_file_path: str = None):
     """Main demo function"""
-    print("🚀 UPLOAD + PROCESSING INTEGRATION DEMO WITH METADATA")
+    print("🚀 UPLOAD + PROCESSING INTEGRATION DEMO (SIMPLIFIED)")
     print("=" * 70)
     
     # Get database session
@@ -253,10 +261,10 @@ async def demo_upload_and_process(cli_file_path: str = None):
             # Upload the file
             print(f"📁 Uploading: {filename}")
             print(f"   📊 Department: {metadata.department}")
-            print(f"   👤 Uploaded by: {metadata.uploaded_by} ({metadata.employee_role.value})")
-            print(f"   📋 Type: {metadata.document_type.value}")
-            print(f"   ⚡ Priority: {metadata.priority_level.value}")
-            print(f"   🔒 Access: {metadata.access_level.value}")
+            print(f"   👤 Uploaded by: {metadata.uploaded_by} ({safe_enum_value(metadata.employee_role)})")
+            print(f"   📋 Type: {safe_enum_value(metadata.document_type)}")
+            print(f"   ⚡ Priority: {safe_enum_value(metadata.priority_level)}")
+            print(f"   🔒 Access: {safe_enum_value(metadata.access_level)}")
             print(f"   🌐 Domain: {metadata.domain_type or 'generic'}")
             
             result = await file_upload_service.upload_file(
@@ -270,9 +278,7 @@ async def demo_upload_and_process(cli_file_path: str = None):
                 print(f"   ✅ Success: {result['file_id']}")
                 print(f"   📦 Size: {result['file_size']} bytes")
                 print(f"   🏷️  MIME Type: {result['mime_type']}")
-                print(f"   📋 Content Type: {result.get('content_type', 'unknown')}")
-                print(f"   ⏰ Processing Priority: {result.get('processing_priority', 'unknown')}")
-                print(f"   🔄 Processing Queued: {result.get('processing_queued', False)}")
+                print(f"   🔄 Processing Completed: {result.get('processing_completed', False)}")
             else:
                 print(f"   ❌ Failed: {result['errors']}")
                 
@@ -281,83 +287,33 @@ async def demo_upload_and_process(cli_file_path: str = None):
         
         print()
     
-    print(f"📊 PROCESSING QUEUE STATUS")
+    print(f"📊 UPLOAD RESULTS")
     print("-" * 40)
-    
-    # Check queue status
-    queue_status = await content_router.get_processing_status()
-    print(f"📋 Pending Jobs: {queue_status['pending_jobs']}")
-    print(f"🔄 Active Jobs: {queue_status['active_jobs']}")
-    print(f"✅ Completed Jobs: {queue_status['completed_jobs']}")
-    print(f"❌ Failed Jobs: {queue_status['failed_jobs']}")
-    
-    print(f"\n🔄 PROCESSING JOBS...")
-    print("-" * 40)
-    
-    # Process the jobs
-    processed_count = 0
-    max_attempts = 10
-    
-    while processed_count < len(uploaded_files) and max_attempts > 0:
-        try:
-            job = await content_router.process_next_job(db)
-            
-            if job:
-                print(f"⚡ Processing: {job.file_id}")
-                print(f"   📝 Content Type: {job.content_type.value}")
-                print(f"   🏢 Department: {job.file_metadata.department}")
-                print(f"   👤 Uploaded by: {job.file_metadata.uploaded_by}")
-                print(f"   🎭 Role: {job.file_metadata.employee_role.value}")
-                print(f"   🌐 Domain: {job.file_metadata.domain_type or 'generic'}")
-                print(f"   🎯 Processing Priority: {job.priority}")
-                print(f"   📋 Steps: {' → '.join(job.workflow_metadata.get('steps', []))}")
-                print(f"   ⏱️  Duration: {job.processing_metadata.processing_duration_seconds:.2f}s")
-                print(f"   🔧 APIs Used: {', '.join(job.processing_metadata.apis_used or [])}")
-                print(f"   ✅ Status: {job.status.value}")
-                processed_count += 1
-            else:
-                print("⏸️  No jobs available to process")
-                break
-                
-        except Exception as e:
-            print(f"❌ Error processing job: {e}")
-            
-        max_attempts -= 1
-        await asyncio.sleep(0.5)
-        print()
-    
-    print(f"📊 FINAL RESULTS")
-    print("-" * 40)
-    
-    # Final queue status
-    final_status = await content_router.get_processing_status()
-    print(f"✅ Completed Jobs: {final_status['completed_jobs']}")
-    print(f"⏸️  Pending Jobs: {final_status['pending_jobs']}")
-    print(f"❌ Failed Jobs: {final_status['failed_jobs']}")
+    print(f"✅ Successfully uploaded: {len(uploaded_files)} files")
+    print(f"🔄 All files processed immediately with simplified workflow")
     
     # Show file details
     print(f"\n📁 UPLOADED FILES SUMMARY")
     print("-" * 40)
     
     for result in uploaded_files:
-        metadata = result['metadata']
         print(f"📄 {result['original_filename']}")
         print(f"   🆔 ID: {result['file_id']}")
         print(f"   📦 Size: {result['file_size']} bytes")
         print(f"   🏷️  Type: {result['file_type']}")
-        print(f"   🏢 Department: {metadata['department']}")
-        print(f"   👤 Uploaded by: {metadata['uploaded_by']}")
-        print(f"   🎭 Role: {metadata['employee_role']}")
-        print(f"   ⚡ Priority: {metadata['priority_level']}")
-        print(f"   🌐 Domain: {metadata.get('domain_type', 'generic')}")
-        print(f"   🔄 Processing: {result.get('processing_queued', False)}")
+        print(f"   🏢 Department: {result['department']}")
+        print(f"   👤 Uploaded by: {result['uploaded_by']}")
+        print(f"   🎭 Role: {safe_enum_value(result['employee_role'])}")
+        print(f"   ⚡ Priority: {safe_enum_value(result['priority_level'])}")
+        print(f"   🌐 Domain: {result.get('file_metadata', {}).get('domain_type', 'generic')}")
+        print(f"   ✅ Processing: {'Completed' if result.get('processing_completed') else 'Failed'}")
         print()
 
 
 async def main():
     """Run the demo"""
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Upload + Processing Integration Demo with Metadata")
+    parser = argparse.ArgumentParser(description="Upload + Processing Integration Demo (Simplified)")
     parser.add_argument(
         "--file", 
         type=str, 
@@ -379,13 +335,10 @@ async def main():
         print("✅ DEMO COMPLETED!")
         print("🎯 Key Observations:")
         print("   • Files uploaded with comprehensive metadata structure")
-        print("   • Processing priority determined by metadata priority level")
-        print("   • Domain-specific processing steps added automatically")
-        print("   • Healthcare files get medical entity extraction")
-        print("   • University files get academic content analysis")
+        print("   • Processing happens immediately (simplified workflow)")
+        print("   • Text files processed with keyword extraction and embeddings")
         print("   • Role and department information tracked throughout")
-        print("   • Processing metadata captured for audit trail")
-        print("   • System ready for search integration with metadata")
+        print("   • System ready for hackathon development")
         
         if args.file:
             print(f"   • Your file: {args.file} was processed with metadata!")
@@ -396,7 +349,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    print("Starting Upload + Processing Demo with Metadata...")
+    print("Starting Upload + Processing Demo (Simplified)...")
     print("💡 Usage:")
     print("   python examples/demo_upload_and_process.py                    # Use default test files")
     print("   python examples/demo_upload_and_process.py --file myfile.txt  # Upload your own file")
