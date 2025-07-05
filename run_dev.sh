@@ -40,11 +40,15 @@ else
 fi
 
 # Install admin panel dependencies if needed
-if [ ! -d "admin-panel/node_modules" ]; then
-    echo "📦 Installing admin panel dependencies..."
-    cd admin-panel && npm install && cd ..
+if [ -d "admin-panel" ]; then
+    if [ ! -d "admin-panel/node_modules" ]; then
+        echo "📦 Installing admin panel dependencies..."
+        cd admin-panel && npm install && cd ..
+    else
+        echo "✅ Admin panel dependencies already installed"
+    fi
 else
-    echo "✅ Admin panel dependencies already installed"
+    echo "⚠️  Admin panel directory not found, skipping admin panel setup"
 fi
 
 # Build React app for production
@@ -52,8 +56,12 @@ echo "🔨 Building React app for production..."
 cd frontend && npm run build && cd ..
 
 # Build admin panel for production
-echo "🔨 Building admin panel for production..."
-cd admin-panel && npm run build && cd ..
+if [ -d "admin-panel" ]; then
+    echo "🔨 Building admin panel for production..."
+    cd admin-panel && npm run build && cd ..
+else
+    echo "⚠️  Admin panel directory not found, skipping admin panel build"
+fi
 
 echo ""
 echo "🎯 Choose your development mode:"
@@ -85,26 +93,42 @@ case $choice in
         cd frontend && npm run dev
         ;;
     3)
-        echo "🔧 Starting development mode with Admin Panel..."
-        echo "📱 Frontend: http://localhost:3000"
-        echo "🔧 Admin Panel: http://localhost:3001"
-        echo "🔗 Backend API: http://localhost:8080"
-        echo ""
-        echo "Starting FastAPI backend..."
-        PYTHONPATH=. python -m src.main &
+        if [ -d "admin-panel" ]; then
+            echo "🔧 Starting development mode with Admin Panel..."
+            echo "📱 Frontend: http://localhost:3000"
+            echo "🔧 Admin Panel: http://localhost:3001"
+            echo "🔗 Backend API: http://localhost:8080"
+            echo ""
+            echo "Starting FastAPI backend..."
+            PYTHONPATH=. python -m src.main &
 
-        echo "Starting React development server..."
-        cd frontend && npm run dev &
+            echo "Starting React development server..."
+            cd frontend && npm run dev &
 
-        echo "Starting Admin Panel development server..."
-        cd admin-panel && npm run dev
+            echo "Starting Admin Panel development server..."
+            cd admin-panel && npm run dev
+        else
+            echo "⚠️  Admin panel directory not found. Starting development mode without admin panel..."
+            echo "📱 Frontend: http://localhost:3000"
+            echo "🔗 Backend API: http://localhost:8080"
+            echo ""
+            echo "Starting FastAPI backend..."
+            PYTHONPATH=. python -m src.main &
+
+            echo "Starting React development server..."
+            cd frontend && npm run dev
+        fi
         ;;
     4)
         echo "🔨 Building React app and Admin Panel..."
         cd frontend && npm run build && cd ..
         echo "✅ Frontend build complete! Files are in frontend/dist/"
-        cd admin-panel && npm run build && cd ..
-        echo "✅ Admin Panel build complete! Files are in admin-panel/dist/"
+        if [ -d "admin-panel" ]; then
+            cd admin-panel && npm run build && cd ..
+            echo "✅ Admin Panel build complete! Files are in admin-panel/dist/"
+        else
+            echo "⚠️  Admin panel directory not found, skipping admin panel build"
+        fi
         ;;
     *)
         echo "❌ Invalid choice. Please run the script again."
