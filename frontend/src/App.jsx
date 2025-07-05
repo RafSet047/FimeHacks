@@ -1,12 +1,12 @@
 import { clsx } from 'clsx'
-import { AlertCircle, Bell, Bot, CheckCircle, Info, LogOut, Send, Settings, Sparkles, User } from 'lucide-react'
+import { AlertCircle, Bell, Bot, CheckCircle, Info, LogOut, Send, Settings, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const ChatApp = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      content: "Hello! I'm your AI assistant. How can I help you today?",
+      content: "Hello! I'm Cerebryx, your AI assistant. How can I help you today?",
       sender: 'ai',
       timestamp: new Date(),
     }
@@ -35,7 +35,7 @@ const ChatApp = () => {
     {
       id: 3,
       title: "System Update",
-      message: "AI Assistant has been updated with improved response accuracy",
+      message: "Cerebryx has been updated with improved response accuracy",
       timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
       read: true,
       type: "system"
@@ -243,8 +243,12 @@ const ChatApp = () => {
           <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 glass-header border-b border-white/10">
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 via-sage-500 to-forest-600 flex items-center justify-center shadow-glow-primary">
-                  <Sparkles className="w-6 h-6 text-white drop-shadow-sm" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 via-sage-500 to-forest-600 flex items-center justify-center shadow-glow-primary overflow-hidden">
+                  <img
+                    src="/cerebryx-white-logo.png"
+                    alt="Cerebryx"
+                    className="w-8 h-8 object-contain drop-shadow-sm"
+                  />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-sage-400 to-primary-500 rounded-full border-2 border-white shadow-sm">
                   <div className="w-full h-full rounded-full bg-white/20"></div>
@@ -252,7 +256,7 @@ const ChatApp = () => {
               </div>
               <div>
                 <h1 className="text-lg font-bold gradient-text-primary">
-                  AI Assistant
+                  Cerebryx
                 </h1>
                 <p className="text-xs text-primary-600 font-semibold flex items-center">
                   <div className="w-2 h-2 bg-primary-400 rounded-full mr-2 shadow-sm"></div>
