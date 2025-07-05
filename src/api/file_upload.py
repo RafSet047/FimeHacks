@@ -2,10 +2,12 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, s
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+import json
 
 from src.database.connection import get_db
 from src.services.file_upload import file_upload_service
 from src.utils.logging import logger
+from src.models.metadata import FileMetadata, DocumentType, ContentCategory, PriorityLevel, AccessLevel, EmployeeRole
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -48,41 +50,40 @@ class FileListResponse(BaseModel):
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    department: Optional[str] = Form(None),
-    project: Optional[str] = Form(None),
-    tags: Optional[str] = Form(None),
+    metadata: str = Form(...),
     db: Session = Depends(get_db)
 ):
     """
-    Upload a file with optional metadata
+    Upload a file with metadata
     
     Args:
         file: File to upload
-        department: Department tag (optional)
-        project: Project tag (optional)
-        tags: Comma-separated tags (optional)
+        metadata: JSON string containing file metadata
         db: Database session
     
     Returns:
         FileUploadResponse with upload results
     """
     try:
-        # Parse tags
-        tag_list = []
-        if tags:
-            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        # Parse metadata JSON
+        metadata_dict = json.loads(metadata)
+        file_metadata = FileMetadata(**metadata_dict)
         
         # Upload file
         result = await file_upload_service.upload_file(
             file=file,
             db=db,
-            department=department,
-            project=project,
-            tags=tag_list
+            file_metadata=file_metadata
         )
         
         return FileUploadResponse(**result)
     
+    except ValueError as e:
+        logger.error(f"Invalid metadata format: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid metadata format: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Error in upload endpoint: {e}")
         raise HTTPException(

@@ -114,6 +114,30 @@ class DatabaseConfig(BaseModel):
 def get_default_collections_config() -> Dict[str, CollectionConfig]:
     """Get default collection configurations"""
     return {
+        "text_embeddings": CollectionConfig(
+            name="text_embeddings",
+            description="Generic text embeddings for demo and testing",
+            vector_dim=1536,
+            content_types=[ContentTypeEnum.DOCUMENT],
+            organization_types=[OrganizationTypeEnum.HEALTHCARE, OrganizationTypeEnum.UNIVERSITY],
+            agentic_description=AgenticDescription(
+                purpose="Stores text embeddings for demonstration and testing purposes",
+                best_for="Text similarity search, semantic search demos",
+                typical_queries=[
+                    "Find similar texts",
+                    "Semantic search examples",
+                    "Demo queries"
+                ],
+                search_hints=["Use for text similarity", "Good for semantic search demos"],
+                combine_with=["documents"],
+                authority_level="low"
+            ),
+            index_config={
+                "metric_type": "COSINE",
+                "index_type": "IVF_FLAT",
+                "params": {"nlist": 128}
+            }
+        ),
         "documents": CollectionConfig(
             name="documents",
             description="Text documents, reports, protocols, research papers",

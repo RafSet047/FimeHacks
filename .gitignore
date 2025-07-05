@@ -1,12 +1,4 @@
 __pycache__
-*.DS_Store
+DS_Store
 *.db
 *.swp
-
-frontend_build
-
-logs
-
-*.env
-*.venv
-*.vscode
