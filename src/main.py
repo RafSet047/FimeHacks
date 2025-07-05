@@ -11,7 +11,6 @@ from src.config.settings import settings
 from src.database.connection import init_db
 from src.utils.logging import setup_logging
 from src.api.file_upload import router as file_upload_router
-from src.api.chat import router as chat_router
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -56,7 +55,6 @@ app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets
 
 # Include routers
 app.include_router(file_upload_router)
-app.include_router(chat_router)
 
 # Global services
 google_service = None
@@ -85,6 +83,14 @@ class HealthResponse(BaseModel):
     status: str
     services: Dict[str, bool]
     message: str
+
+# Add chat-specific models
+class ChatMessage(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    status: str = "success"
 
 @app.on_event("startup")
 async def startup_event():
@@ -170,13 +176,16 @@ async def process_document(
 ):
     """Process document: upload → extract → chunk → embed → store"""
     temp_file_path = None
+    logger.info(f"Processing document upload: {file.filename}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
 
     try:
         # Parse metadata
         try:
             metadata_dict = json.loads(metadata)
+            logger.info(f"Parsed metadata: {metadata_dict}")
         except json.JSONDecodeError:
             metadata_dict = {"department": "demo", "description": "uploaded document"}
+            logger.warning("Invalid metadata JSON, using defaults")
 
         # Save uploaded file temporarily
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
@@ -188,13 +197,17 @@ async def process_document(
 
         # Extract text
         mime_type = _get_mime_type(file.filename)
+        logger.info(f"Extracting text from {file.filename} (MIME: {mime_type})")
         extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
 
         if not extracted_text.strip():
+            logger.error(f"No text extracted from {file.filename}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the file"
             )
+
+        logger.info(f"Extracted {len(extracted_text)} characters from {file.filename}")
 
         # Chunk text
         config = ChunkingConfig(
@@ -203,12 +216,14 @@ async def process_document(
             add_start_index=True
         )
 
+        logger.info(f"Chunking text with config: size={config.chunk_size}, overlap={config.chunk_overlap}")
         chunks = text_chunker.chunk_text(
             text=extracted_text,
             strategy=ChunkingStrategy.RECURSIVE,
             config=config,
             metadata={"source": file.filename}
         )
+        logger.info(f"Created {len(chunks)} chunks from {file.filename}")
 
         # Process chunks: embed and store
         document_ids = []
@@ -255,6 +270,7 @@ async def process_document(
                 continue
 
         # Return results
+        logger.info(f"Document processing complete: {len(chunks)} chunks processed, {len(document_ids)} documents stored, {embeddings_generated} embeddings generated")
         return ProcessResponse(
             success=len(document_ids) > 0,
             message=f"Processed {len(chunks)} chunks, stored {len(document_ids)} documents",
@@ -279,14 +295,19 @@ async def process_document(
 async def search_documents(request: SearchRequest):
     """Vector search for similar documents"""
     try:
+        logger.info(f"Search request received: query='{request.query[:50]}...', limit={request.limit}")
+
         # Generate query embeddings
         query_embeddings = google_service.generate_text_embeddings(request.query)
 
         if not query_embeddings:
+            logger.error("Failed to generate query embeddings")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to generate query embeddings"
             )
+
+        logger.info(f"Generated embeddings for query, vector size: {len(query_embeddings[0])}")
 
         # Search in Milvus
         results = milvus_db.vector_search(
@@ -294,6 +315,8 @@ async def search_documents(request: SearchRequest):
             query_vector=query_embeddings[0],
             limit=request.limit
         )
+
+        logger.info(f"Search completed, found {len(results)} results")
 
         # Simplify results for response
         simplified_results = []
@@ -318,6 +341,83 @@ async def search_documents(request: SearchRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}"
+        )
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_endpoint(chat_message: ChatMessage):
+    """Chat endpoint that uses vector search to find relevant documents"""
+    try:
+        user_message = chat_message.message.strip()
+        logger.info(f"Chat message received: '{user_message[:100]}...'")
+
+        if not user_message:
+            raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+        # Use search functionality to find relevant documents
+        search_request = SearchRequest(
+            query=user_message,
+            limit=3,  # Get top 3 most relevant results
+            collection_name="text_embeddings"
+        )
+
+        logger.info(f"Performing vector search for chat query")
+
+        # Generate query embeddings
+        query_embeddings = google_service.generate_text_embeddings(user_message)
+
+        if not query_embeddings:
+            logger.warning("Failed to generate embeddings for chat query")
+            return ChatResponse(
+                response="I'm having trouble understanding your question right now. Please try again.",
+                status="error"
+            )
+
+        logger.info(f"Generated embeddings for chat query, vector size: {len(query_embeddings[0])}")
+
+        # Search in Milvus
+        results = milvus_db.vector_search(
+            collection_name="text_embeddings",
+            query_vector=query_embeddings[0],
+            limit=3
+        )
+
+        logger.info(f"Found {len(results)} relevant documents for chat query")
+
+        # Generate response based on search results
+        if results:
+            # Format the response based on the search results
+            response_parts = []
+            response_parts.append(f"Based on the documents in our knowledge base, here's what I found:")
+
+            for i, result in enumerate(results, 1):
+                metadata = result.get("metadata", {})
+                score = result.get("score", 0)
+
+                # Extract relevant information from metadata
+                filename = metadata.get("filename", "Unknown document")
+                chunk_text = metadata.get("chunk_text", "")
+                department = result.get("department", "General")
+
+                if chunk_text:
+                    response_parts.append(f"\n{i}. From {filename} (Department: {department}):")
+                    response_parts.append(f"   {chunk_text}")
+                    if score:
+                        response_parts.append(f"   (Relevance: {score:.2f})")
+
+            response = "\n".join(response_parts)
+            logger.info(f"Generated response with {len(results)} search results")
+
+        else:
+            response = "I couldn't find any relevant documents for your question. Could you try rephrasing your question or check if any documents have been uploaded to the system?"
+            logger.info("No search results found, returning fallback response")
+
+        return ChatResponse(response=response)
+
+    except Exception as e:
+        logger.error(f"Chat endpoint error: {e}")
+        return ChatResponse(
+            response="I encountered an error while processing your request. Please try again.",
+            status="error"
         )
 
 def _get_mime_type(filename: str) -> str:
