@@ -2,68 +2,70 @@
 # Replaces: requirements.txt, requirements_milvus.txt, and requirements_test.txt
 
 # Core FastAPI and web framework
-fastapi==0.104.1
-uvicorn==0.24.0
+fastapi==0.115.14
+uvicorn==0.35.0
 
 # Database and ORM
-sqlalchemy==2.0.23
-alembic==1.12.1
+sqlalchemy==2.0.41
+alembic==1.16.2
+psycopg2-binary
 
-# Pydantic and settings (fixed version conflicts)
-pydantic
-pydantic-settings # Updated to satisfy langchain-community requirements
+# Pydantic - Use specific versions compatible with Python 3.13
+pydantic==2.11.7
+pydantic-settings==2.10.1
+pydantic-core==2.33.2
 
-# Environment and configuration (fixed version conflicts)
-python-dotenv==1.0.1  # Updated to satisfy pymilvus and llama-cloud-services
+python-dotenv==1.1.1
+python-dateutil==2.9.0
 
-# File handling
-aiofiles==23.2.1
-python-multipart==0.0.6
+aiofiles==24.1.0
+python-multipart==0.0.20
 python-magic==0.4.27
 
-# Milvus vector database
-pymilvus>=2.3.0
+# Milvus - Use specific version to avoid build issues
+pymilvus>=2.5.0
 protobuf>=3.20.0
 grpcio>=1.49.0
 grpcio-tools>=1.49.0
 ujson>=5.4.0
 
-# Numpy (fixed version conflicts)
-numpy>=1.21.0,<2.0.0  # Fixed to be compatible with matplotlib, numba, etc.
+# NumPy - Use version compatible with Python 3.13
+numpy>=1.26.0,<2.0.0
 
-# Pandas
-pandas>=1.3.0
+# Pandas - Use version with Python 3.13 support
+pandas>=2.2.0
 
-# Machine Learning and AI libraries
-torch>=1.12.0,<4.0  # Added to satisfy lightning, pytorch-lightning, sentence-transformers, torchmetrics
-torchvision>=0.13.0  # Compatible with torch version
-sentence-transformers>=2.0.0
+# Machine Learning and AI libraries (optional - commented out to avoid build issues)
+# torch>=1.12.0,<4.0  # Uncomment when needed
+# torchvision>=0.13.0  # Uncomment when needed
+# sentence-transformers>=2.0.0  # Uncomment when needed
 
-# File system spec (fixed version conflicts)
-fsspec>=2021.06.0,<2025.0  # Fixed to satisfy lightning requirements
+# File system spec
+fsspec>=2021.06.0,<2025.0
 
 # Testing dependencies
-pytest>=7.0.0
+pytest==7.4.3
 pytest-asyncio>=0.21.0
 pytest-mock>=3.10.0
 coverage>=7.0.0
-pytest-cov>=4.0.0
+pytest-cov==4.1.0
 
-# Document processing libraries
-PyPDF2>=3.0.0
-python-docx>=0.8.11
-langchain>=0.1.0
-langchain-community>=0.0.10  # Added explicitly with compatible versions
-unstructured>=0.10.0
+# Document processing libraries (optional - commented out to avoid build issues)
+# PyPDF2>=3.0.0  # Uncomment when needed
+# python-docx>=0.8.11  # Uncomment when needed
+# langchain>=0.1.0  # Uncomment when needed
+# langchain-community>=0.0.10  # Uncomment when needed
+# unstructured>=0.10.0  # Uncomment when needed
 
-# Google API libraries
-google-generativeai>=0.3.0
-google-cloud-speech>=2.21.0
+# Google API libraries (optional - commented out to avoid build issues)
+# google-generativeai>=0.3.0  # Uncomment when needed
+# google-cloud-speech>=2.21.0  # Uncomment when needed
 
-# Audio processing
-pydub>=0.25.1
+# Audio processing (optional - commented out to avoid build issues)
+# pydub>=0.25.1  # Uncomment when needed
 
 # Additional utilities
 requests>=2.28.0
 httpx>=0.24.0
-typing-extensions>=4.5.0
+typing-extensions>=4.12.0
+pyyaml>=6.0.0
