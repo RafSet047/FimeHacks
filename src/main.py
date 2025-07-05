@@ -114,6 +114,67 @@ class ChatResponse(BaseModel):
     response: str
     status: str = "success"
 
+def determine_chunking_strategy(filename: str) -> ChunkingStrategy:
+    """
+    Determine the appropriate chunking strategy based on file extension
+    
+    Args:
+        filename: Name of the file
+        
+    Returns:
+        ChunkingStrategy: The appropriate chunking strategy
+    """
+    if not filename:
+        return ChunkingStrategy.RECURSIVE
+    
+    extension = Path(filename).suffix.lower()
+    
+    # Define mapping of file extensions to chunking strategies
+    extension_mapping = {
+        '.md': ChunkingStrategy.MARKDOWN,
+        '.markdown': ChunkingStrategy.MARKDOWN,
+        '.html': ChunkingStrategy.HTML,
+        '.htm': ChunkingStrategy.HTML,
+        '.tex': ChunkingStrategy.LATEX,
+        '.latex': ChunkingStrategy.LATEX,
+        '.py': ChunkingStrategy.CODE,
+        '.js': ChunkingStrategy.CODE,
+        '.jsx': ChunkingStrategy.CODE,
+        '.ts': ChunkingStrategy.CODE,
+        '.tsx': ChunkingStrategy.CODE,
+        '.java': ChunkingStrategy.CODE,
+        '.cpp': ChunkingStrategy.CODE,
+        '.c': ChunkingStrategy.CODE,
+        '.h': ChunkingStrategy.CODE,
+        '.hpp': ChunkingStrategy.CODE,
+        '.cs': ChunkingStrategy.CODE,
+        '.php': ChunkingStrategy.CODE,
+        '.rb': ChunkingStrategy.CODE,
+        '.go': ChunkingStrategy.CODE,
+        '.rs': ChunkingStrategy.CODE,
+        '.swift': ChunkingStrategy.CODE,
+        '.kt': ChunkingStrategy.CODE,
+        '.scala': ChunkingStrategy.CODE,
+        '.r': ChunkingStrategy.CODE,
+        '.sql': ChunkingStrategy.CODE,
+        '.sh': ChunkingStrategy.CODE,
+        '.bash': ChunkingStrategy.CODE,
+        '.yaml': ChunkingStrategy.CODE,
+        '.yml': ChunkingStrategy.CODE,
+        '.json': ChunkingStrategy.CODE,
+        '.xml': ChunkingStrategy.CODE,
+        '.css': ChunkingStrategy.CODE,
+        '.scss': ChunkingStrategy.CODE,
+        '.sass': ChunkingStrategy.CODE,
+        '.less': ChunkingStrategy.CODE,
+    }
+    
+    # Get strategy from mapping, default to RECURSIVE
+    strategy = extension_mapping.get(extension, ChunkingStrategy.RECURSIVE)
+    
+    logger.info(f"File extension '{extension}' mapped to chunking strategy: {strategy}")
+    return strategy
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
@@ -345,27 +406,44 @@ async def process_document(
 
         # Chunk text
         logger.info("=== CHUNKING TEXT ===")
+        
+        # Determine chunking strategy based on file extension
+        chunking_strategy = determine_chunking_strategy(file.filename)
+        logger.info(f"Selected chunking strategy: {chunking_strategy} for file: {file.filename}")
+        
         config = ChunkingConfig(
             chunk_size=512,
             chunk_overlap=128,
             add_start_index=True
         )
 
-        logger.info(f"Chunking with config: size={config.chunk_size}, overlap={config.chunk_overlap}")
+        logger.info(f"Chunking with config: size={config.chunk_size}, overlap={config.chunk_overlap}, strategy={chunking_strategy}")
         try:
             chunks = text_chunker.chunk_text(
                 text=extracted_text,
-                strategy=ChunkingStrategy.RECURSIVE,
+                strategy=chunking_strategy,
                 config=config,
                 metadata={"source": file.filename}
             )
-            logger.info(f"Successfully created {len(chunks)} chunks from {file.filename}")
+            logger.info(f"Successfully created {len(chunks)} chunks from {file.filename} using {chunking_strategy} strategy")
         except Exception as chunk_error:
-            logger.error(f"Text chunking failed: {chunk_error}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Text chunking failed: {str(chunk_error)}"
-            )
+            logger.error(f"Text chunking failed with {chunking_strategy} strategy: {chunk_error}")
+            # Fallback to recursive strategy if the selected strategy fails
+            logger.info("Falling back to RECURSIVE chunking strategy")
+            try:
+                chunks = text_chunker.chunk_text(
+                    text=extracted_text,
+                    strategy=ChunkingStrategy.RECURSIVE,
+                    config=config,
+                    metadata={"source": file.filename}
+                )
+                logger.info(f"Successfully created {len(chunks)} chunks using fallback RECURSIVE strategy")
+            except Exception as fallback_error:
+                logger.error(f"Fallback chunking also failed: {fallback_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Text chunking failed: {str(fallback_error)}"
+                )
 
         # Process chunks: embed and store with AI-enhanced metadata
         logger.info("=== PROCESSING CHUNKS: EMBEDDING AND STORING ===")
@@ -744,6 +822,7 @@ async def serve_react_app():
             content="<h1>React app not built yet. Run: cd frontend && npm run build</h1>",
             status_code=404
         )
+
 
 
 if __name__ == "__main__":

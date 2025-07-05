@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # File storage settings
     storage_path: str = "./storage"
     max_file_size: int = 104857600
-    allowed_file_types: str = "txt,pdf,doc,docx,png,jpg,jpeg,gif,mp3,wav,mp4,avi,mov"
+    allowed_file_types: str = "txt,pdf,doc,docx,png,jpg,jpeg,gif,mp3,wav,mp4,avi,mov,xlsx,xls,md"
 
     # API Keys
     openai_api_key: Optional[str] = None
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
 
     @property
     def text_file_types(self) -> List[str]:
-        return ["txt", "pdf", "doc", "docx", "md", "html", "json", "csv"]
+        return ["txt", "pdf", "doc", "docx", "md", "html", "json", "csv", "xlsx", "xls"]
 
     @property
     def audio_file_types(self) -> List[str]:
