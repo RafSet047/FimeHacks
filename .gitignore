@@ -4,3 +4,5 @@ __pycache__
 *.swp
 venv
 .venv
+*.wav
+*.mp3

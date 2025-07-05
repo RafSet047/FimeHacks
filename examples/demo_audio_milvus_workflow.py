@@ -5,6 +5,8 @@ from typing import Optional, List, Dict, Any
 import sys
 import os
 import hashlib
+import subprocess
+import tempfile
 
 # Add src to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,6 +29,9 @@ class AudioMilvusDemo:
         # Initialize services
         self.google_service = get_google_service(api_key=google_api_key)
         self.milvus_db = MilvusVectorDatabase()
+        
+        # Supported audio formats
+        self.supported_formats = ['.wav', '.mp3']
         
         # Connect to Milvus
         if not self.milvus_db.connect():
@@ -112,16 +117,69 @@ class AudioMilvusDemo:
             # Pad with zeros to target dimension
             return embedding + [0.0] * (target_dim - current_dim)
     
+    def _convert_to_wav(self, audio_file_path: str) -> str:
+        """Convert audio file to WAV format if needed"""
+        file_ext = os.path.splitext(audio_file_path)[1].lower()
+        
+        # If already WAV, return original path
+        if file_ext == '.wav':
+            return audio_file_path
+            
+        # Check if format is supported
+        if file_ext not in self.supported_formats:
+            raise ValueError(f"Unsupported audio format: {file_ext}")
+        
+        try:
+            # Create temporary WAV file
+            temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+            temp_wav_path = temp_wav.name
+            temp_wav.close()
+            
+            # Convert to WAV using ffmpeg
+            command = [
+                'ffmpeg',
+                '-i', audio_file_path,  # Input file
+                '-acodec', 'pcm_s16le',  # Output codec (16-bit PCM)
+                '-ar', '16000',          # Sample rate 16kHz
+                '-ac', '1',              # Mono channel
+                '-y',                    # Overwrite output file
+                temp_wav_path            # Output file
+            ]
+            
+            # Run ffmpeg
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                raise RuntimeError(f"FFmpeg conversion failed: {result.stderr}")
+            
+            logger.info(f"Successfully converted {file_ext} to WAV")
+            return temp_wav_path
+            
+        except Exception as e:
+            logger.error(f"Audio conversion failed: {e}")
+            if os.path.exists(temp_wav_path):
+                os.remove(temp_wav_path)
+            raise
+
     def process_audio(self, audio_file_path: str) -> str:
         """Process audio file: transcribe, generate embeddings, and store in Milvus"""
+        temp_wav_path = None
         try:
             # Verify file exists
             if not os.path.exists(audio_file_path):
                 raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
             
+            # Convert to WAV if needed
+            temp_wav_path = self._convert_to_wav(audio_file_path)
+            
             # Step 1: Transcribe audio
             logger.info("Transcribing audio file...")
-            transcription_result = self.google_service.transcribe_audio(audio_file_path)
+            transcription_result = self.google_service.transcribe_audio(temp_wav_path)
             
             if not transcription_result or not transcription_result.get("transcript"):
                 raise ValueError("Failed to transcribe audio file")
@@ -169,7 +227,8 @@ class AudioMilvusDemo:
                         "full_transcript": transcript,
                         "word_count": word_count,
                         "speakers": speakers,
-                        "audio_file": audio_file_path
+                        "audio_file": audio_file_path,
+                        "original_format": os.path.splitext(audio_file_path)[1].lstrip('.')
                     }
                 ),
                 compliance=ComplianceMetadata()
@@ -192,6 +251,13 @@ class AudioMilvusDemo:
         except Exception as e:
             logger.error(f"Failed to process audio: {e}")
             raise
+        finally:
+            # Clean up temporary WAV file if created
+            if temp_wav_path and temp_wav_path != audio_file_path:
+                try:
+                    os.remove(temp_wav_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove temporary file {temp_wav_path}: {e}")
     
     def search_similar(self, query_text: str, limit: int = 5) -> List[dict]:
         """Search for similar audio transcripts using text query"""
