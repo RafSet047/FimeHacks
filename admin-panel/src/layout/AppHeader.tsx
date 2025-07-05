@@ -83,17 +83,16 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link to="/" className="lg:hidden">
+          <Link to="/" className="lg:hidden flex items-center gap-2">
             <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
+              src="./images/logo/cerebryx-logo.png"
+              alt="Cerebryx"
+              width={32}
+              height={32}
             />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
+              Cerebryx
+            </span>
           </Link>
 
           <button

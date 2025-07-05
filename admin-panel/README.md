@@ -1,18 +1,18 @@
-# TailAdmin React - Free React Tailwind Admin Dashboard Template
+# Cerebryx Admin Dashboard - React Tailwind Admin Dashboard
 
-TailAdmin is a free and open-source admin dashboard template built on **React and Tailwind CSS**, providing developers
+Cerebryx is a comprehensive admin dashboard built on **React and Tailwind CSS**, providing developers
 with everything they need to create a comprehensive, data-driven back-end,
 dashboard, or admin panel solution for upcoming web projects.
 
-With TailAdmin, you get access to all the necessary dashboard UI components, elements, and pages required to build a
+With Cerebryx, you get access to all the necessary dashboard UI components, elements, and pages required to build a
 feature-rich and complete dashboard or admin panel. Whether you're building dashboard or admin panel for a complex web
-application or a simple website, TailAdmin is the perfect solution to help you get up and running quickly.
+application or a simple website, Cerebryx is the perfect solution to help you get up and running quickly.
 
-![TailAdmin React.js Dashboard Preview](./banner.png)
+![Cerebryx React.js Dashboard Preview](./banner.png)
 
 ## Overview
 
-TailAdmin provides essential UI components and layouts for building feature-rich, data-driven admin dashboards and
+Cerebryx provides essential UI components and layouts for building feature-rich, data-driven admin dashboards and
 control panels. It's built on:
 
 - React 19
@@ -42,7 +42,7 @@ control panels. It's built on:
 
 ### Prerequisites
 
-To get started with TailAdmin, ensure you have the following prerequisites installed and set up:
+To get started with Cerebryx, ensure you have the following prerequisites installed and set up:
 
 - Node.js 18.x or later (recommended to use Node.js 20.x or later)
 
@@ -75,7 +75,7 @@ git clone https://github.com/TailAdmin/free-react-tailwind-admin-dashboard.git
 
 ## Components
 
-TailAdmin is a pre-designed starting point for building a web-based dashboard using React.js and Tailwind CSS. The
+Cerebryx is a pre-designed starting point for building a web-based dashboard using React.js and Tailwind CSS. The
 template includes:
 
 - Sophisticated and accessible sidebar
@@ -176,15 +176,15 @@ A major update with comprehensive redesign and modern React patterns implementat
 
 ### Version 1.2.0 - [Apr 28, 2023]
 
-- Add Typescript in TailAdmin React.
+- Add Typescript in Cerebryx React.
 
 ### Version 1.0.0 - Initial Release - [Mar 13, 2023]
 
-- Initial release of TailAdmin React.
+- Initial release of Cerebryx React.
 
 ## License
 
-TailAdmin React.js Free Version is released under the MIT License.
+Cerebryx React.js Free Version is released under the MIT License.
 
 ## Support
 
