@@ -17,6 +17,14 @@ except ImportError:
     GOOGLE_APIs_AVAILABLE = False
     logging.warning("Google AI APIs not available")
 
+# Image processing imports
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    logging.warning("PIL not available for image processing")
+
 # Audio processing imports
 try:
     from pydub import AudioSegment
@@ -346,6 +354,7 @@ class GoogleService:
             "genai_configured": self.genai_configured,
             "speech_client_available": self.speech_client is not None,
             "pydub_available": PYDUB_AVAILABLE,
+            "pil_available": PIL_AVAILABLE,
             "api_key_configured": bool(self.api_key),
             "service_account_configured": bool(self.service_account_path and os.path.exists(self.service_account_path)),
             "authentication_method": "api_key" if self.api_key else ("service_account" if self.service_account_path else "none")
@@ -356,6 +365,7 @@ class GoogleService:
         results = {
             "embedding_test": False,
             "speech_test": False,
+            "image_analysis_test": False,
             "errors": []
         }
 
@@ -375,7 +385,96 @@ class GoogleService:
         else:
             results["errors"].append("Speech client not available")
 
+        # Test image analysis capability
+        if PIL_AVAILABLE and self.genai_configured:
+            results["image_analysis_test"] = True
+        else:
+            if not PIL_AVAILABLE:
+                results["errors"].append("PIL not available for image processing")
+            if not self.genai_configured:
+                results["errors"].append("Google Generative AI not configured for image analysis")
+
         return results
+
+    def analyze_image(self, image_path: str, prompt: str = "Describe this image in detail") -> str:
+        """Analyze image and generate description/caption using Google's vision model"""
+        logger.info(f"Analyzing image: {image_path}")
+        if not self.genai_configured:
+            raise RuntimeError("Google Generative AI not configured")
+        
+        if not PIL_AVAILABLE:
+            raise RuntimeError("PIL not available for image processing")
+
+        try:
+            # Load image
+            image = Image.open(image_path)
+            logger.debug(f"Loaded image: {image_path}, size: {image.size}, mode: {image.mode}")
+
+            # Apply rate limiting
+            self._rate_limit()
+
+            # Create model instance for multimodal content generation
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Generate content from image and prompt
+            response = model.generate_content([prompt, image])
+            
+            if not response.text:
+                logger.warning(f"No text generated for image: {image_path}")
+                return ""
+
+            logger.info(f"Generated image analysis for: {image_path}")
+            return response.text.strip()
+
+        except Exception as e:
+            logger.error(f"Image analysis failed for {image_path}: {e}")
+            raise
+
+    def generate_image_caption(self, image_path: str) -> str:
+        """Generate a descriptive caption for an image"""
+        caption_prompt = (
+            "Generate a clear, descriptive caption for this image. "
+            "Focus on the main subjects, their actions, and the setting. "
+            "Keep it concise but informative. Give me only one option."
+        )
+        return self.analyze_image(image_path, caption_prompt)
+
+    def extract_text_from_image(self, image_path: str) -> str:
+        """Extract text from an image using OCR capabilities"""
+        ocr_prompt = (
+            "Extract all visible text from this image. "
+            "Provide the text exactly as it appears, maintaining formatting where possible. "
+            "If no text is visible, respond with 'No text found'."
+        )
+        return self.analyze_image(image_path, ocr_prompt)
+
+    def analyze_image_content(self, image_path: str, question: str) -> str:
+        """Answer specific questions about image content"""
+        analysis_prompt = f"Looking at this image, please answer the following question: {question}"
+        return self.analyze_image(image_path, analysis_prompt)
+
+    async def analyze_image_async(self, image_path: str, prompt: str = "Describe this image in detail") -> str:
+        """Async version of image analysis"""
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(
+                executor,
+                self.analyze_image,
+                image_path,
+                prompt
+            )
+        return result
+
+    async def generate_image_caption_async(self, image_path: str) -> str:
+        """Async version of image caption generation"""
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            result = await loop.run_in_executor(
+                executor,
+                self.generate_image_caption,
+                image_path
+            )
+        return result
 
 
 # Global service instance

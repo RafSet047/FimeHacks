@@ -8,13 +8,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from src.config.settings import settings
-from src.database.connection import init_db
+from src.database.connection import init_db, get_db
 from src.utils.logging import setup_logging
 from src.api.file_upload import router as file_upload_router
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-import tempfile
 import json
 import time
 
@@ -22,10 +21,11 @@ import time
 sys.path.append(str(Path(__file__).parent.parent))
 
 import uvicorn
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from src.services.external_apis.google_service import get_google_service
 from src.database.milvus_db import MilvusVectorDatabase
@@ -89,6 +89,13 @@ class ProcessResponse(BaseModel):
     embeddings_generated: int
     ai_tags: Optional[List[str]] = None
     analysis_time: Optional[float] = None
+    file_id: Optional[str] = None
+    filename: Optional[str] = None
+    file_size: Optional[int] = None
+    file_type: Optional[str] = None
+    database_id: Optional[int] = None
+    department: Optional[str] = None
+    project: Optional[str] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -197,7 +204,8 @@ async def health_check():
 @app.post("/process", response_model=ProcessResponse)
 async def process_document(
     file: UploadFile = File(...),
-    metadata: str = Form(default='{"department": "demo", "description": "uploaded document"}')
+    metadata: str = Form(default='{"department": "demo", "description": "uploaded document"}'),
+    db: Session = Depends(get_db)
 ):
     """Process document: upload → extract → analyze → chunk → embed → store"""
     temp_file_path = None
@@ -238,34 +246,51 @@ async def process_document(
             metadata_dict = {"department": "demo", "description": "uploaded document"}
             logger.warning(f"Using default metadata: {metadata_dict}")
 
-        # Save uploaded file temporarily
-        logger.info("=== SAVING UPLOADED FILE ===")
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
-        temp_file_path = temp_file.name
-        logger.info(f"Created temp file: {temp_file_path}")
+        # Use file upload service for file upload and storage
+        from src.services.file_upload import file_upload_service
+        from src.models.metadata import FileMetadata
 
-        content = await file.read()
-        logger.info(f"Read {len(content)} bytes from uploaded file")
+        # Create FileMetadata object
+        file_metadata = FileMetadata(
+            department=metadata_dict.get("department", "demo"),
+            project_name=metadata_dict.get("project", ""),
+            description=metadata_dict.get("description", "uploaded document"),
+            tags=metadata_dict.get("tags", []),
+            document_type=metadata_dict.get("document_type", "other"),
+            content_category=metadata_dict.get("content_category", "other"),
+            priority_level=metadata_dict.get("priority_level", "medium"),
+            access_level=metadata_dict.get("access_level", "internal"),
+            employee_role=metadata_dict.get("employee_role", "staff"),
+            uploaded_by=metadata_dict.get("uploaded_by", "system"),
+            domain_type=metadata_dict.get("domain_type", "general")
+        )
 
-        with open(temp_file_path, 'wb') as f:
-            f.write(content)
-        logger.info(f"Saved file to temporary location: {temp_file_path}")
+        # Upload file using the service
+        upload_result = await file_upload_service.upload_file(
+            file=file,
+            db=db,
+            file_metadata=file_metadata
+        )
+
+        if not upload_result["success"]:
+            logger.error(f"File upload failed: {upload_result.get('errors', [])}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File upload failed: {upload_result.get('errors', [])}"
+            )
+
+        # Get the uploaded file path for processing
+        temp_file_path = upload_result["storage_path"]
+        logger.info(f"File uploaded successfully to: {temp_file_path}")
+
+        # Get file content for processing
+        with open(temp_file_path, 'rb') as f:
+            content = f.read()
 
         # Extract text
-        logger.info("=== EXTRACTING TEXT ===")
-        mime_type = _get_mime_type(file.filename)
-        logger.info(f"Detected MIME type: {mime_type} for file: {file.filename}")
-        logger.info(f"Calling document_extractor.extract_text with path: {temp_file_path}")
-
-        try:
-            extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
-            logger.info(f"Text extraction completed successfully")
-        except Exception as extraction_error:
-            logger.error(f"Text extraction failed: {extraction_error}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Text extraction failed: {str(extraction_error)}"
-            )
+        mime_type = upload_result["mime_type"]
+        logger.info(f"Extracting text from {file.filename} (MIME: {mime_type})")
+        extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
 
         if not extracted_text.strip():
             logger.error(f"No text extracted from {file.filename} - extracted_text is empty or whitespace only")
@@ -300,15 +325,20 @@ async def process_document(
         # Prepare base metadata for all chunks
         logger.info("=== PREPARING METADATA ===")
         base_metadata = {
-            "filename": file.filename,
-            "department": metadata_dict.get("department", "demo"),
+            "filename": upload_result.get("filename", file.filename),
+            "original_filename": upload_result.get("original_filename", file.filename),
+            "file_id": upload_result.get("file_id"),
+            "department": upload_result.get("department", "demo"),
             "description": metadata_dict.get("description", ""),
-            "tags": metadata_dict.get("tags", []),
-            "project": metadata_dict.get("project", ""),
+            "tags": upload_result.get("tags", []),
+            "project": upload_result.get("project", ""),
             "content_length": len(extracted_text),
             "mime_type": mime_type,
             "analysis_time": analysis_time,
-            "upload_timestamp": time.time()
+            "upload_timestamp": time.time(),
+            "file_size": upload_result.get("file_size"),
+            "file_type": upload_result.get("file_type"),
+            "database_id": upload_result.get("database_id")
         }
         logger.info(f"Prepared base metadata: {base_metadata}")
 
@@ -419,26 +449,23 @@ async def process_document(
                 logger.error(f"Error type: {type(e).__name__}")
                 continue
 
-        # Return results with AI analysis information
-        logger.info("=== FINALIZING PROCESSING RESULTS ===")
-        logger.info(f"Processing Summary:")
-        logger.info(f"  - Total chunks created: {len(chunks)}")
-        logger.info(f"  - Documents stored: {len(document_ids)}")
-        logger.info(f"  - Embeddings generated: {embeddings_generated}")
-        logger.info(f"  - AI tags: {ai_tags}")
-        logger.info(f"  - Analysis time: {analysis_time:.2f}s")
-
-        success = len(document_ids) > 0
-        logger.info(f"Processing success: {success}")
-
-        response = ProcessResponse(
-            success=success,
-            message=f"Processed {len(chunks)} chunks with AI analysis, stored {len(document_ids)} documents",
+        # Return results with AI analysis information and file upload details
+        logger.info(f"Document processing complete: {len(chunks)} chunks processed, {len(document_ids)} documents stored, {embeddings_generated} embeddings generated")
+        return ProcessResponse(
+            success=len(document_ids) > 0,
+            message=f"File uploaded and processed: {len(chunks)} chunks with AI analysis, stored {len(document_ids)} documents",
             document_ids=document_ids,
             chunks_processed=len(chunks),
             embeddings_generated=embeddings_generated,
             ai_tags=ai_tags,
-            analysis_time=analysis_time
+            analysis_time=analysis_time,
+            file_id=upload_result.get("file_id"),
+            filename=upload_result.get("filename"),
+            file_size=upload_result.get("file_size"),
+            file_type=upload_result.get("file_type"),
+            database_id=upload_result.get("database_id"),
+            department=upload_result.get("department"),
+            project=upload_result.get("project")
         )
 
         logger.info("=== DOCUMENT PROCESSING COMPLETED SUCCESSFULLY ===")
