@@ -1,90 +1,83 @@
 #!/usr/bin/env python3
 """
-Simple demonstration of StoreAgent storing text and tags in Milvus DB
+Simple demonstration of StoreAgent analyzing content and generating tags
 """
 
 import sys
 import os
 
+# Add the src directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.agents.store_agent import StoreAgent
-from src.database.milvus_db import MilvusVectorDatabase
 
 def main():
-    """Simple demo of StoreAgent functionality"""
+    """Simple demo of StoreAgent content analysis functionality"""
     
-    print("Simple StoreAgent Demo")
+    print("Simple StoreAgent Content Analysis Demo")
     print("=" * 50)
     
-    # Initialize Milvus DB
-    print("Connecting to Milvus DB...")
-    milvus_db = MilvusVectorDatabase()
-    
-    if not milvus_db.connect():
-        print("❌ Failed to connect to Milvus DB")
-        return
-    
-    print("✅ Connected to Milvus DB")
-    
-    # Create collection
-    collection_name = "demo_collection"
-    print(f"Creating collection: {collection_name}")
-    milvus_db.create_collection(collection_name)
-    
-    # Initialize StoreAgent
+    # Initialize StoreAgent (no database dependencies)
     print("Initializing StoreAgent...")
     store_agent = StoreAgent(
-        postgres_db=None,  # Not using PostgreSQL for this demo
-        milvus_db=milvus_db,
-        config={'vector_dim': 384}  # Smaller dimension for demo
+        name="ContentAnalyzer",
+        description="Analyzes content and generates tags"
     )
     
-    # Test with a simple query
-    with open("dummy_file.txt", "r") as file:
-        test_text = file.read()
+    print("✅ StoreAgent initialized successfully")
+    print(f"Available tags: {store_agent.available_tags}")
     
-    print(f"\nStoring text: '{test_text}'")
+    # Test with sample content
+    test_contents = [
+        "This is a research paper about machine learning algorithms in healthcare applications.",
+        "Student registration form for Fall 2024 semester including course selection and payment information.",
+        "Faculty meeting minutes discussing curriculum changes and administrative policies.",
+        "Patient medical records showing blood test results and diagnostic imaging reports.",
+        "University budget report for the academic year with financial projections."
+    ]
     
-    # Store the text
-    result = store_agent.classify_and_store_query(test_text, collection_name)
+    print(f"\nAnalyzing {len(test_contents)} sample texts...")
+    print("-" * 60)
     
-    if result['success']:
-        print("✅ Successfully stored document!")
-        print(f"   Document ID: {result['document_id']}")
-        print(f"   Tags: {result['tags']}")
-        print(f"   Content Length: {result['content_length']} characters")
-        print(f"   Embedding Dimension: {result['embedding_dim']}")
-    else:
-        print(f"❌ Failed to store document: {result['error']}")
-        return
-    
-    # Retrieve and display stored documents
-    print(f"\nRetrieving stored documents from '{collection_name}':")
-    stored_docs = milvus_db.get_stored_documents(collection_name)
-    
-    for i, doc in enumerate(stored_docs, 1):
-        print(f"\n--- Document {i} ---")
-        print(f"ID: {doc['id']}")
-        print(f"Content: {doc['content']}")
-        print(f"Tags: {doc['tags']}")
-        print(f"Content Type: {doc['content_type']}")
-        print(f"Department: {doc['department']}")
-        print(f"Agent: {doc.get('agent_name', 'Unknown')}")
-        print(f"Timestamp: {doc.get('timestamp', 'Unknown')}")
-    
-    # Test tag search
-    if stored_docs and stored_docs[0]['tags']:
-        first_tag = stored_docs[0]['tags'][0]
-        print(f"\nSearching for documents with tag: '{first_tag}'")
+    for i, text in enumerate(test_contents, 1):
+        print(f"\n--- Test {i} ---")
+        print(f"Text: {text}")
         
-        matching_docs = milvus_db.search_by_tags(collection_name, [first_tag])
-        print(f"Found {len(matching_docs)} matching documents")
+        # Analyze content
+        tags = store_agent.analyze_content(text)
         
-        for doc in matching_docs:
-            print(f"  - {doc['content'][:50]}...")
+        print(f"Generated Tags: {tags}")
+        print(f"Number of tags: {len(tags)}")
+        
+        # Display agent status
+        status = store_agent.get_status()
+        print(f"Agent Status: {'Active' if status['is_active'] else 'Inactive'}")
+        print(f"Error Count: {status['error_count']}")
     
-    # Cleanup
-    milvus_db.disconnect()
-    print("\n✅ Demo completed!")
+    # Test with empty/invalid content
+    print(f"\n--- Edge Cases ---")
+    
+    edge_cases = [
+        "",  # Empty string
+        "   ",  # Whitespace only
+        "a",  # Very short text
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit." * 10  # Long text
+    ]
+    
+    for i, text in enumerate(edge_cases, 1):
+        print(f"\nEdge Case {i}: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        tags = store_agent.analyze_content(text)
+        print(f"Generated Tags: {tags}")
+    
+    # Display final agent status
+    final_status = store_agent.get_status()
+    print(f"\n--- Final Agent Status ---")
+    print(f"Name: {final_status['name']}")
+    print(f"Description: {final_status['description']}")
+    print(f"Active: {final_status['is_active']}")
+    print(f"Total Errors: {final_status['error_count']}")
+    
+    print("\n✅ Demo completed successfully!")
 
 if __name__ == "__main__":
     main() 
