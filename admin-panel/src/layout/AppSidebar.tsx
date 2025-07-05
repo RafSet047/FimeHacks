@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
+import { useSidebar } from "../context/SidebarContext";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -15,7 +16,6 @@ import {
   TableIcon,
   UserCircleIcon,
 } from "../icons";
-import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+    path: "/",
   },
   {
     icon: <CalenderIcon />,
@@ -101,14 +101,14 @@ const AppSidebar: React.FC = () => {
     index: number;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
+    {},
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
-    [location.pathname]
+    [location.pathname],
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const AppSidebar: React.FC = () => {
   };
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
-    <ul className="flex flex-col gap-4">
+    <ul className='flex flex-col gap-4'>
       {items.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
@@ -187,7 +187,7 @@ const AppSidebar: React.FC = () => {
                 {nav.icon}
               </span>
               {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{nav.name}</span>
+                <span className='menu-item-text'>{nav.name}</span>
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
@@ -218,7 +218,7 @@ const AppSidebar: React.FC = () => {
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text">{nav.name}</span>
+                  <span className='menu-item-text'>{nav.name}</span>
                 )}
               </Link>
             )
@@ -228,7 +228,7 @@ const AppSidebar: React.FC = () => {
               ref={(el) => {
                 subMenuRefs.current[`${menuType}-${index}`] = el;
               }}
-              className="overflow-hidden transition-all duration-300"
+              className='overflow-hidden transition-all duration-300'
               style={{
                 height:
                   openSubmenu?.type === menuType && openSubmenu?.index === index
@@ -236,7 +236,7 @@ const AppSidebar: React.FC = () => {
                     : "0px",
               }}
             >
-              <ul className="mt-2 space-y-1 ml-9">
+              <ul className='mt-2 space-y-1 ml-9'>
                 {nav.subItems.map((subItem) => (
                   <li key={subItem.name}>
                     <Link
@@ -248,7 +248,7 @@ const AppSidebar: React.FC = () => {
                       }`}
                     >
                       {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
+                      <span className='flex items-center gap-1 ml-auto'>
                         {subItem.new && (
                           <span
                             className={`ml-auto ${
@@ -303,32 +303,32 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
+        <Link to='/'>
           {isExpanded || isHovered || isMobileOpen ? (
-            <div className="flex items-center gap-2">
+            <div className='flex items-center gap-2'>
               <img
-                src="/images/logo/cerebryx-logo.png"
-                alt="Cerebryx"
+                src='/images/logo/cerebryx-logo.png'
+                alt='Cerebryx'
                 width={40}
                 height={40}
               />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
+              <span className='text-xl font-bold text-gray-900 dark:text-white'>
                 Cerebryx
               </span>
             </div>
           ) : (
             <img
-              src="/images/logo/cerebryx-logo.png"
-              alt="Cerebryx"
+              src='/images/logo/cerebryx-logo.png'
+              alt='Cerebryx'
               width={32}
               height={32}
             />
           )}
         </Link>
       </div>
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
-          <div className="flex flex-col gap-4">
+      <div className='flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar'>
+        <nav className='mb-6'>
+          <div className='flex flex-col gap-4'>
             <div>
               <h2
                 className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
@@ -340,12 +340,12 @@ const AppSidebar: React.FC = () => {
                 {isExpanded || isHovered || isMobileOpen ? (
                   "Menu"
                 ) : (
-                  <HorizontaLDots className="size-6" />
+                  <HorizontaLDots className='size-6' />
                 )}
               </h2>
               {renderMenuItems(navItems, "main")}
             </div>
-            <div className="">
+            <div className=''>
               <h2
                 className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
                   !isExpanded && !isHovered
