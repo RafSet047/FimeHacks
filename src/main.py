@@ -555,7 +555,9 @@ async def chat_endpoint(chat_message: ChatMessage):
     """Chat endpoint that uses vector search to find relevant documents"""
     try:
         user_message = chat_message.message.strip()
-        logger.info(f"Chat message received: '{user_message[:100]}...'")
+        logger.info(f"=== CHAT QUERY PROCESSING ===")
+        logger.info(f"User message: '{user_message}'")
+        logger.info(f"Message length: {len(user_message)}")
 
         if not user_message:
             raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -567,61 +569,124 @@ async def chat_endpoint(chat_message: ChatMessage):
             collection_name="text_embeddings"
         )
 
-        logger.info(f"Performing vector search for chat query")
+        logger.info(f"=== GENERATING EMBEDDINGS ===")
+        logger.info(f"Query for embeddings: '{user_message}'")
 
         # Generate query embeddings
-        query_embeddings = google_service.generate_text_embeddings(user_message)
-
-        if not query_embeddings:
-            logger.warning("Failed to generate embeddings for chat query")
+        try:
+            query_embeddings = google_service.generate_text_embeddings(user_message)
+            logger.info(f"Embeddings generation successful")
+        except Exception as embed_error:
+            logger.error(f"Failed to generate embeddings: {embed_error}")
             return ChatResponse(
                 response="I'm having trouble understanding your question right now. Please try again.",
                 status="error"
             )
 
-        logger.info(f"Generated embeddings for chat query, vector size: {len(query_embeddings[0])}")
+        if not query_embeddings:
+            logger.warning("No embeddings returned from Google service")
+            return ChatResponse(
+                response="I'm having trouble understanding your question right now. Please try again.",
+                status="error"
+            )
+
+        logger.info(f"Generated embeddings - vector size: {len(query_embeddings[0])}")
+        logger.info(f"First 5 embedding values: {query_embeddings[0][:5]}")
 
         # Search in Milvus
-        results = milvus_db.vector_search(
-            collection_name="text_embeddings",
-            query_vector=query_embeddings[0],
-            limit=3
-        )
+        logger.info(f"=== PERFORMING VECTOR SEARCH ===")
+        logger.info(f"Collection: text_embeddings")
+        logger.info(f"Query vector length: {len(query_embeddings[0])}")
+        logger.info(f"Search limit: 3")
 
-        logger.info(f"Found {len(results)} relevant documents for chat query")
+        try:
+            results = milvus_db.vector_search(
+                collection_name="text_embeddings",
+                query_vector=query_embeddings[0],
+                limit=3
+            )
+            logger.info(f"Vector search completed successfully")
+        except Exception as search_error:
+            logger.error(f"Vector search failed: {search_error}")
+            return ChatResponse(
+                response="I encountered an error while searching. Please try again.",
+                status="error"
+            )
+
+        logger.info(f"=== SEARCH RESULTS ANALYSIS ===")
+        logger.info(f"Number of results returned: {len(results)}")
+
+        if not results:
+            logger.warning("No results returned from vector search")
+            return ChatResponse(
+                response="I couldn't find any relevant documents for your question. Could you try rephrasing your question or check if any documents have been uploaded to the system?",
+                status="success"
+            )
+
+        # Log each result in detail
+        for i, result in enumerate(results):
+            logger.info(f"--- Result {i+1} ---")
+            logger.info(f"Result keys: {list(result.keys())}")
+            logger.info(f"Result ID: {result.get('id')}")
+            logger.info(f"Result score: {result.get('score')}")
+            logger.info(f"Result department: {result.get('department')}")
+            logger.info(f"Result content_type: {result.get('content_type')}")
+
+            metadata = result.get("metadata", {})
+            logger.info(f"Metadata keys: {list(metadata.keys())}")
+            logger.info(f"Metadata filename: {metadata.get('filename')}")
+            logger.info(f"Metadata chunk_text: {metadata.get('chunk_text', 'NOT FOUND')[:100]}...")
 
         # Generate response based on search results
-        if results:
-            # Format the response based on the search results
-            response_parts = []
-            response_parts.append(f"Based on the documents in our knowledge base, here's what I found:")
+        logger.info(f"=== GENERATING RESPONSE ===")
+        response_parts = []
+        response_parts.append(f"Based on the documents in our knowledge base, here's what I found:")
 
-            for i, result in enumerate(results, 1):
-                metadata = result.get("metadata", {})
-                score = result.get("score", 0)
+        results_added = 0
+        for i, result in enumerate(results, 1):
+            logger.info(f"Processing result {i}")
+            metadata = result.get("metadata", {})
+            score = result.get("score", 0)
 
-                # Extract relevant information from metadata
-                filename = metadata.get("filename", "Unknown document")
-                chunk_text = metadata.get("chunk_text", "")
-                department = result.get("department", "General")
+            # Extract relevant information from metadata
+            filename = metadata.get("filename", "Unknown document")
+            chunk_text = metadata.get("chunk_text", "")
+            department = result.get("department", "General")
 
-                if chunk_text:
-                    response_parts.append(f"\n{i}. From {filename} (Department: {department}):")
-                    response_parts.append(f"   {chunk_text}")
-                    if score:
-                        response_parts.append(f"   (Relevance: {score:.2f})")
+            logger.info(f"Result {i} - filename: {filename}")
+            logger.info(f"Result {i} - chunk_text length: {len(chunk_text)}")
+            logger.info(f"Result {i} - department: {department}")
+            logger.info(f"Result {i} - score: {score}")
 
-            response = "\n".join(response_parts)
-            logger.info(f"Generated response with {len(results)} search results")
+            if chunk_text and len(chunk_text.strip()) > 0:
+                response_parts.append(f"\n{i}. From {filename} (Department: {department}):")
+                response_parts.append(f"   {chunk_text}")
+                if score:
+                    response_parts.append(f"   (Relevance: {score:.2f})")
+                results_added += 1
+                logger.info(f"Added result {i} to response")
+            else:
+                logger.warning(f"Result {i} has no chunk_text, skipping")
 
+        logger.info(f"Total results added to response: {results_added}")
+
+        if results_added == 0:
+            logger.warning("No results had valid chunk_text")
+            response = "I found some documents but couldn't extract readable content. The documents may need to be re-processed."
         else:
-            response = "I couldn't find any relevant documents for your question. Could you try rephrasing your question or check if any documents have been uploaded to the system?"
-            logger.info("No search results found, returning fallback response")
+            response = "\n".join(response_parts)
+
+        logger.info(f"Final response length: {len(response)}")
+        logger.info(f"Final response preview: {response[:200]}...")
 
         return ChatResponse(response=response)
 
     except Exception as e:
-        logger.error(f"Chat endpoint error: {e}")
+        logger.error(f"=== CHAT ENDPOINT ERROR ===")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return ChatResponse(
             response="I encountered an error while processing your request. Please try again.",
             status="error"
