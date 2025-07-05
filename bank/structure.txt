@@ -1,0 +1,699 @@
+# BANK DATABASE STRUCTURE
+# Complete database schema for banking operations management system
+
+## CORE ENTITIES
+
+### 1. CUSTOMERS TABLE
+CREATE TABLE customers (
+    customer_id VARCHAR(10) PRIMARY KEY,
+    customer_number VARCHAR(20) UNIQUE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    middle_name VARCHAR(50),
+    date_of_birth DATE NOT NULL,
+    age INTEGER,
+    gender VARCHAR(10),
+    ssn_last4 VARCHAR(4),
+    phone_primary VARCHAR(20),
+    phone_secondary VARCHAR(20),
+    email VARCHAR(100),
+    address_street VARCHAR(200),
+    address_city VARCHAR(100),
+    address_state VARCHAR(2),
+    address_zip VARCHAR(10),
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_relationship VARCHAR(50),
+    emergency_contact_phone VARCHAR(20),
+    account_type VARCHAR(20),
+    credit_score INTEGER,
+    annual_income DECIMAL(12,2),
+    employment_status VARCHAR(20),
+    employer VARCHAR(100),
+    account_status VARCHAR(20),
+    opening_date DATE,
+    last_activity_date DATE,
+    balance_checking DECIMAL(12,2),
+    balance_savings DECIMAL(12,2),
+    balance_credit DECIMAL(12,2),
+    loan_balance DECIMAL(12,2),
+    overdraft_protection BOOLEAN,
+    online_banking BOOLEAN,
+    mobile_banking BOOLEAN,
+    debit_card BOOLEAN,
+    credit_card BOOLEAN,
+    investment_account BOOLEAN,
+    insurance_products BOOLEAN,
+    financial_advisor VARCHAR(10),
+    branch_preference VARCHAR(50),
+    preferred_language VARCHAR(20),
+    fraud_alerts BOOLEAN,
+    account_frozen BOOLEAN,
+    last_credit_review DATE,
+    risk_level VARCHAR(10)
+);
+
+### 2. BRANCHES TABLE
+CREATE TABLE branches (
+    branch_id VARCHAR(10) PRIMARY KEY,
+    branch_name VARCHAR(100) NOT NULL,
+    branch_code VARCHAR(10) UNIQUE NOT NULL,
+    branch_type VARCHAR(50),
+    address_street VARCHAR(200),
+    address_city VARCHAR(100),
+    address_state VARCHAR(2),
+    address_zip VARCHAR(10),
+    phone_number VARCHAR(20),
+    fax_number VARCHAR(20),
+    email VARCHAR(100),
+    manager_id VARCHAR(10),
+    opening_date DATE,
+    operating_hours VARCHAR(100),
+    atm_count INTEGER,
+    safe_deposit_boxes INTEGER,
+    drive_thru BOOLEAN,
+    night_deposit BOOLEAN,
+    wire_transfer_services BOOLEAN,
+    notary_services BOOLEAN,
+    financial_advisor_services BOOLEAN,
+    loan_services BOOLEAN,
+    insurance_services BOOLEAN,
+    investment_services BOOLEAN,
+    compliance_officer VARCHAR(10),
+    security_system VARCHAR(20),
+    accessibility_features BOOLEAN,
+    parking_available BOOLEAN,
+    public_transportation BOOLEAN,
+    branch_size_sqft INTEGER,
+    employee_count INTEGER,
+    customer_count INTEGER,
+    monthly_transactions INTEGER,
+    quarterly_revenue DECIMAL(12,2),
+    annual_budget DECIMAL(12,2),
+    branch_status VARCHAR(20),
+    special_services VARCHAR(200),
+    notes TEXT
+);
+
+### 3. EMPLOYEES TABLE
+CREATE TABLE employees (
+    employee_id VARCHAR(10) PRIMARY KEY,
+    employee_number VARCHAR(10) UNIQUE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    middle_name VARCHAR(50),
+    date_of_birth DATE,
+    age INTEGER,
+    gender VARCHAR(10),
+    ssn_last4 VARCHAR(4),
+    phone_primary VARCHAR(20),
+    phone_secondary VARCHAR(20),
+    email VARCHAR(100),
+    address_street VARCHAR(200),
+    address_city VARCHAR(100),
+    address_state VARCHAR(2),
+    address_zip VARCHAR(10),
+    hire_date DATE,
+    position_title VARCHAR(100),
+    department VARCHAR(50),
+    manager_id VARCHAR(10),
+    branch_id VARCHAR(10),
+    salary DECIMAL(10,2),
+    commission_rate DECIMAL(5,2),
+    performance_rating DECIMAL(3,1),
+    employment_status VARCHAR(20),
+    education_level VARCHAR(50),
+    licenses_certifications VARCHAR(200),
+    training_completed BOOLEAN,
+    security_clearance VARCHAR(20),
+    background_check_date DATE,
+    drug_test_date DATE,
+    last_review_date DATE,
+    next_review_date DATE,
+    vacation_days_used INTEGER,
+    vacation_days_remaining INTEGER,
+    sick_days_used INTEGER,
+    overtime_hours INTEGER,
+    employee_benefits VARCHAR(50),
+    emergency_contact_name VARCHAR(100),
+    emergency_contact_relationship VARCHAR(50),
+    emergency_contact_phone VARCHAR(20),
+    notes TEXT,
+    FOREIGN KEY (manager_id) REFERENCES employees(employee_id),
+    FOREIGN KEY (branch_id) REFERENCES branches(branch_id)
+);
+
+### 4. EXECUTIVES TABLE
+CREATE TABLE executives (
+    executive_id VARCHAR(10) PRIMARY KEY,
+    employee_id VARCHAR(10) UNIQUE NOT NULL,
+    executive_title VARCHAR(100) NOT NULL,
+    executive_level INTEGER,
+    department_oversight VARCHAR(200),
+    strategic_focus_areas TEXT,
+    board_member BOOLEAN,
+    compensation_package DECIMAL(12,2),
+    equity_stake DECIMAL(5,2),
+    performance_metrics TEXT,
+    strategic_initiatives TEXT,
+    risk_tolerance VARCHAR(20),
+    decision_authority VARCHAR(50),
+    reporting_structure VARCHAR(100),
+    succession_plan VARCHAR(10),
+    mentor_id VARCHAR(10),
+    key_performance_indicators TEXT,
+    strategic_goals TEXT,
+    industry_experience_years INTEGER,
+    regulatory_relationships TEXT,
+    stakeholder_relationships TEXT,
+    notes TEXT,
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id),
+    FOREIGN KEY (succession_plan) REFERENCES executives(executive_id),
+    FOREIGN KEY (mentor_id) REFERENCES executives(executive_id)
+);
+
+## ACCOUNTING & TRANSACTIONS
+
+### 5. ACCOUNTS TABLE
+CREATE TABLE accounts (
+    account_id VARCHAR(10) PRIMARY KEY,
+    account_number VARCHAR(20) UNIQUE NOT NULL,
+    customer_id VARCHAR(10) NOT NULL,
+    account_type VARCHAR(50) NOT NULL,
+    account_subtype VARCHAR(50),
+    opening_date DATE,
+    closing_date DATE,
+    account_status VARCHAR(20),
+    balance DECIMAL(12,2),
+    interest_rate DECIMAL(5,2),
+    monthly_fee DECIMAL(8,2),
+    minimum_balance DECIMAL(10,2),
+    overdraft_limit DECIMAL(10,2),
+    daily_limit DECIMAL(10,2),
+    monthly_limit DECIMAL(10,2),
+    account_manager VARCHAR(10),
+    branch_id VARCHAR(10),
+    last_transaction_date DATE,
+    statement_frequency VARCHAR(20),
+    online_access BOOLEAN,
+    mobile_access BOOLEAN,
+    debit_card_number VARCHAR(20),
+    credit_limit DECIMAL(10,2),
+    payment_due_date DATE,
+    credit_utilization DECIMAL(5,2),
+    account_purpose VARCHAR(100),
+    joint_account BOOLEAN,
+    beneficiary_name VARCHAR(100),
+    beneficiary_relationship VARCHAR(50),
+    auto_pay_setup BOOLEAN,
+    recurring_transfers BOOLEAN,
+    account_alerts BOOLEAN,
+    fraud_protection BOOLEAN,
+    account_notes TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (account_manager) REFERENCES employees(employee_id),
+    FOREIGN KEY (branch_id) REFERENCES branches(branch_id)
+);
+
+### 6. TRANSACTIONS TABLE
+CREATE TABLE transactions (
+    transaction_id VARCHAR(10) PRIMARY KEY,
+    account_id VARCHAR(10) NOT NULL,
+    transaction_date DATE NOT NULL,
+    transaction_time TIME,
+    transaction_type VARCHAR(20),
+    transaction_category VARCHAR(50),
+    description VARCHAR(200),
+    amount DECIMAL(12,2) NOT NULL,
+    balance_after DECIMAL(12,2),
+    merchant_name VARCHAR(100),
+    merchant_category VARCHAR(50),
+    location_city VARCHAR(100),
+    location_state VARCHAR(2),
+    transaction_method VARCHAR(50),
+    card_number VARCHAR(20),
+    reference_number VARCHAR(20),
+    status VARCHAR(20),
+    fraud_flag BOOLEAN,
+    dispute_status VARCHAR(20),
+    atm_location VARCHAR(10),
+    branch_id VARCHAR(10),
+    teller_id VARCHAR(10),
+    approval_code VARCHAR(20),
+    foreign_currency VARCHAR(3),
+    exchange_rate DECIMAL(8,4),
+    fee_amount DECIMAL(8,2),
+    recurring_transaction BOOLEAN,
+    transaction_source VARCHAR(50),
+    notes TEXT,
+    FOREIGN KEY (account_id) REFERENCES accounts(account_id),
+    FOREIGN KEY (branch_id) REFERENCES branches(branch_id),
+    FOREIGN KEY (teller_id) REFERENCES employees(employee_id)
+);
+
+### 7. LOANS TABLE
+CREATE TABLE loans (
+    loan_id VARCHAR(10) PRIMARY KEY,
+    loan_number VARCHAR(20) UNIQUE NOT NULL,
+    customer_id VARCHAR(10) NOT NULL,
+    loan_type VARCHAR(50) NOT NULL,
+    loan_subtype VARCHAR(50),
+    loan_amount DECIMAL(12,2) NOT NULL,
+    interest_rate DECIMAL(5,2) NOT NULL,
+    loan_term_months INTEGER,
+    monthly_payment DECIMAL(10,2),
+    origination_date DATE,
+    maturity_date DATE,
+    loan_status VARCHAR(20),
+    remaining_balance DECIMAL(12,2),
+    principal_paid DECIMAL(12,2),
+    interest_paid DECIMAL(12,2),
+    payment_frequency VARCHAR(20),
+    collateral_type VARCHAR(50),
+    collateral_value DECIMAL(12,2),
+    loan_purpose VARCHAR(100),
+    credit_score_at_origination INTEGER,
+    debt_to_income_ratio DECIMAL(5,2),
+    loan_to_value_ratio DECIMAL(5,2),
+    guarantor_name VARCHAR(100),
+    guarantor_relationship VARCHAR(50),
+    loan_officer VARCHAR(10),
+    branch_id VARCHAR(10),
+    last_payment_date DATE,
+    next_payment_date DATE,
+    days_past_due INTEGER,
+    default_status VARCHAR(20),
+    prepayment_penalty BOOLEAN,
+    late_fee_structure VARCHAR(100),
+    insurance_required BOOLEAN,
+    escrow_account BOOLEAN,
+    loan_notes TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    FOREIGN KEY (loan_officer) REFERENCES employees(employee_id),
+    FOREIGN KEY (branch_id) REFERENCES branches(branch_id)
+);
+
+## EXECUTIVE MANAGEMENT
+
+### 8. EXECUTIVE_MEETINGS TABLE
+CREATE TABLE executive_meetings (
+    meeting_id VARCHAR(10) PRIMARY KEY,
+    meeting_title VARCHAR(200) NOT NULL,
+    meeting_date DATE NOT NULL,
+    meeting_time TIME,
+    meeting_type VARCHAR(50),
+    meeting_location VARCHAR(100),
+    chairperson_id VARCHAR(10),
+    secretary_id VARCHAR(10),
+    meeting_status VARCHAR(20),
+    agenda_items TEXT,
+    participants TEXT,
+    quorum_achieved BOOLEAN,
+    meeting_duration_minutes INTEGER,
+    key_decisions TEXT,
+    action_items TEXT,
+    follow_up_required BOOLEAN,
+    meeting_notes TEXT,
+    strategic_theme VARCHAR(100),
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    budget_impact DECIMAL(12,2),
+    risk_level VARCHAR(20),
+    compliance_required BOOLEAN,
+    external_participants TEXT,
+    meeting_materials TEXT,
+    approval_required BOOLEAN,
+    decision_deadline DATE,
+    implementation_timeline VARCHAR(100),
+    success_metrics TEXT,
+    notes TEXT,
+    FOREIGN KEY (chairperson_id) REFERENCES executives(executive_id),
+    FOREIGN KEY (secretary_id) REFERENCES executives(executive_id)
+);
+
+### 9. STRATEGIC_DECISIONS TABLE
+CREATE TABLE strategic_decisions (
+    decision_id VARCHAR(10) PRIMARY KEY,
+    meeting_id VARCHAR(10) NOT NULL,
+    decision_title VARCHAR(200) NOT NULL,
+    decision_date DATE NOT NULL,
+    decision_type VARCHAR(50),
+    decision_category VARCHAR(50),
+    proposed_by VARCHAR(10),
+    approved_by VARCHAR(10),
+    decision_status VARCHAR(20),
+    decision_description TEXT,
+    strategic_impact VARCHAR(20),
+    financial_impact DECIMAL(12,2),
+    risk_assessment VARCHAR(20),
+    implementation_timeline VARCHAR(100),
+    success_criteria TEXT,
+    resource_requirements TEXT,
+    stakeholder_impact VARCHAR(20),
+    compliance_requirements BOOLEAN,
+    approval_level VARCHAR(50),
+    decision_rationale TEXT,
+    alternatives_considered TEXT,
+    decision_notes TEXT,
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    priority_level VARCHAR(20),
+    budget_allocation DECIMAL(12,2),
+    roi_projection DECIMAL(5,2),
+    risk_level VARCHAR(20),
+    implementation_status VARCHAR(20),
+    success_metrics TEXT,
+    notes TEXT,
+    FOREIGN KEY (meeting_id) REFERENCES executive_meetings(meeting_id),
+    FOREIGN KEY (proposed_by) REFERENCES executives(executive_id),
+    FOREIGN KEY (approved_by) REFERENCES executives(executive_id)
+);
+
+### 10. EXECUTIVE_ACTIONS TABLE
+CREATE TABLE executive_actions (
+    action_id VARCHAR(10) PRIMARY KEY,
+    meeting_id VARCHAR(10),
+    decision_id VARCHAR(10),
+    action_title VARCHAR(200) NOT NULL,
+    action_description TEXT,
+    assigned_to VARCHAR(10),
+    assigned_by VARCHAR(10),
+    action_type VARCHAR(50),
+    priority_level VARCHAR(20),
+    status VARCHAR(20),
+    start_date DATE,
+    due_date DATE,
+    completion_date DATE,
+    progress_percentage INTEGER,
+    action_category VARCHAR(50),
+    strategic_initiative VARCHAR(100),
+    department VARCHAR(50),
+    resource_requirements TEXT,
+    budget_allocation DECIMAL(12,2),
+    success_criteria TEXT,
+    risk_level VARCHAR(20),
+    approval_required BOOLEAN,
+    escalation_level VARCHAR(50),
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    notes TEXT,
+    FOREIGN KEY (meeting_id) REFERENCES executive_meetings(meeting_id),
+    FOREIGN KEY (decision_id) REFERENCES strategic_decisions(decision_id),
+    FOREIGN KEY (assigned_to) REFERENCES executives(executive_id),
+    FOREIGN KEY (assigned_by) REFERENCES executives(executive_id)
+);
+
+### 11. EXECUTIVE_PERFORMANCE TABLE
+CREATE TABLE executive_performance (
+    performance_id VARCHAR(10) PRIMARY KEY,
+    executive_id VARCHAR(10) NOT NULL,
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    performance_period VARCHAR(50),
+    strategic_goal VARCHAR(100),
+    key_performance_indicator VARCHAR(100),
+    target_value VARCHAR(50),
+    actual_value VARCHAR(50),
+    performance_percentage INTEGER,
+    performance_rating DECIMAL(3,1),
+    performance_category VARCHAR(50),
+    department_performance INTEGER,
+    strategic_initiative_progress INTEGER,
+    risk_management_score INTEGER,
+    compliance_score INTEGER,
+    financial_performance INTEGER,
+    operational_efficiency INTEGER,
+    customer_satisfaction DECIMAL(3,1),
+    employee_engagement DECIMAL(3,1),
+    innovation_score DECIMAL(3,1),
+    review_date DATE,
+    reviewer_id VARCHAR(10),
+    performance_notes TEXT,
+    improvement_areas TEXT,
+    success_metrics TEXT,
+    quarterly_goals TEXT,
+    annual_targets TEXT,
+    notes TEXT,
+    FOREIGN KEY (executive_id) REFERENCES executives(executive_id),
+    FOREIGN KEY (reviewer_id) REFERENCES executives(executive_id)
+);
+
+## BUDGET & FINANCIAL MANAGEMENT
+
+### 12. BUDGET_ALLOCATIONS TABLE
+CREATE TABLE budget_allocations (
+    budget_id VARCHAR(10) PRIMARY KEY,
+    decision_id VARCHAR(10),
+    fiscal_year INTEGER,
+    quarter VARCHAR(2),
+    department VARCHAR(50),
+    budget_category VARCHAR(50),
+    budget_type VARCHAR(50),
+    allocation_amount DECIMAL(12,2),
+    approved_amount DECIMAL(12,2),
+    spent_amount DECIMAL(12,2),
+    remaining_amount DECIMAL(12,2),
+    allocation_date DATE,
+    approval_date DATE,
+    approval_status VARCHAR(20),
+    responsible_executive VARCHAR(10),
+    project_name VARCHAR(100),
+    strategic_initiative VARCHAR(100),
+    budget_description TEXT,
+    expense_type VARCHAR(20),
+    cost_center VARCHAR(10),
+    roi_projection DECIMAL(5,2),
+    risk_level VARCHAR(20),
+    compliance_required BOOLEAN,
+    approval_level VARCHAR(50),
+    implementation_timeline VARCHAR(100),
+    success_metrics TEXT,
+    quarterly_targets TEXT,
+    annual_targets TEXT,
+    notes TEXT,
+    FOREIGN KEY (decision_id) REFERENCES strategic_decisions(decision_id),
+    FOREIGN KEY (responsible_executive) REFERENCES executives(executive_id)
+);
+
+## RISK MANAGEMENT
+
+### 13. RISK_ASSESSMENTS TABLE
+CREATE TABLE risk_assessments (
+    risk_id VARCHAR(10) PRIMARY KEY,
+    decision_id VARCHAR(10),
+    risk_category VARCHAR(50),
+    risk_type VARCHAR(50),
+    risk_title VARCHAR(200) NOT NULL,
+    risk_description TEXT,
+    risk_level VARCHAR(20),
+    probability VARCHAR(20),
+    impact VARCHAR(20),
+    risk_score INTEGER,
+    risk_owner VARCHAR(10),
+    risk_assessment_date DATE,
+    risk_status VARCHAR(20),
+    mitigation_strategy TEXT,
+    contingency_plan TEXT,
+    monitoring_frequency VARCHAR(20),
+    review_date DATE,
+    compliance_impact VARCHAR(20),
+    financial_impact DECIMAL(12,2),
+    operational_impact VARCHAR(20),
+    strategic_impact VARCHAR(20),
+    regulatory_requirements BOOLEAN,
+    risk_indicators TEXT,
+    risk_trends VARCHAR(20),
+    escalation_level VARCHAR(50),
+    approval_required BOOLEAN,
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    notes TEXT,
+    FOREIGN KEY (decision_id) REFERENCES strategic_decisions(decision_id),
+    FOREIGN KEY (risk_owner) REFERENCES executives(executive_id)
+);
+
+## TECHNOLOGY PROJECTS
+
+### 14. TECHNOLOGY_PROJECTS TABLE
+CREATE TABLE technology_projects (
+    project_id VARCHAR(10) PRIMARY KEY,
+    decision_id VARCHAR(10),
+    project_name VARCHAR(200) NOT NULL,
+    project_type VARCHAR(50),
+    project_category VARCHAR(50),
+    project_description TEXT,
+    project_manager VARCHAR(10),
+    executive_sponsor VARCHAR(10),
+    project_status VARCHAR(20),
+    start_date DATE,
+    planned_end_date DATE,
+    actual_end_date DATE,
+    project_phase VARCHAR(20),
+    budget_allocated DECIMAL(12,2),
+    budget_spent DECIMAL(12,2),
+    budget_remaining DECIMAL(12,2),
+    project_priority VARCHAR(20),
+    risk_level VARCHAR(20),
+    success_criteria TEXT,
+    key_deliverables TEXT,
+    team_size INTEGER,
+    technology_stack TEXT,
+    vendor_partners TEXT,
+    compliance_requirements BOOLEAN,
+    security_requirements VARCHAR(20),
+    performance_metrics TEXT,
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    notes TEXT,
+    FOREIGN KEY (decision_id) REFERENCES strategic_decisions(decision_id),
+    FOREIGN KEY (project_manager) REFERENCES executives(executive_id),
+    FOREIGN KEY (executive_sponsor) REFERENCES executives(executive_id)
+);
+
+## INDEXES FOR PERFORMANCE
+
+-- Customer indexes
+CREATE INDEX idx_customers_customer_number ON customers(customer_number);
+CREATE INDEX idx_customers_email ON customers(email);
+CREATE INDEX idx_customers_branch_preference ON customers(branch_preference);
+
+-- Account indexes
+CREATE INDEX idx_accounts_customer_id ON accounts(customer_id);
+CREATE INDEX idx_accounts_account_number ON accounts(account_number);
+CREATE INDEX idx_accounts_branch_id ON accounts(branch_id);
+CREATE INDEX idx_accounts_account_status ON accounts(account_status);
+
+-- Transaction indexes
+CREATE INDEX idx_transactions_account_id ON transactions(account_id);
+CREATE INDEX idx_transactions_transaction_date ON transactions(transaction_date);
+CREATE INDEX idx_transactions_transaction_type ON transactions(transaction_type);
+
+-- Loan indexes
+CREATE INDEX idx_loans_customer_id ON loans(customer_id);
+CREATE INDEX idx_loans_loan_number ON loans(loan_number);
+CREATE INDEX idx_loans_loan_status ON loans(loan_status);
+
+-- Executive indexes
+CREATE INDEX idx_executives_employee_id ON executives(employee_id);
+CREATE INDEX idx_executives_executive_title ON executives(executive_title);
+
+-- Meeting indexes
+CREATE INDEX idx_executive_meetings_meeting_date ON executive_meetings(meeting_date);
+CREATE INDEX idx_executive_meetings_chairperson_id ON executive_meetings(chairperson_id);
+
+-- Decision indexes
+CREATE INDEX idx_strategic_decisions_decision_date ON strategic_decisions(decision_date);
+CREATE INDEX idx_strategic_decisions_decision_type ON strategic_decisions(decision_type);
+
+-- Action indexes
+CREATE INDEX idx_executive_actions_assigned_to ON executive_actions(assigned_to);
+CREATE INDEX idx_executive_actions_status ON executive_actions(status);
+
+-- Performance indexes
+CREATE INDEX idx_executive_performance_executive_id ON executive_performance(executive_id);
+CREATE INDEX idx_executive_performance_quarter ON executive_performance(quarter);
+
+-- Budget indexes
+CREATE INDEX idx_budget_allocations_department ON budget_allocations(department);
+CREATE INDEX idx_budget_allocations_fiscal_year ON budget_allocations(fiscal_year);
+
+-- Risk indexes
+CREATE INDEX idx_risk_assessments_risk_level ON risk_assessments(risk_level);
+CREATE INDEX idx_risk_assessments_risk_owner ON risk_assessments(risk_owner);
+
+-- Technology project indexes
+CREATE INDEX idx_technology_projects_project_status ON technology_projects(project_status);
+CREATE INDEX idx_technology_projects_project_manager ON technology_projects(project_manager);
+
+## MEETING TRANSCRIPTS & DECISIONS
+
+### 15. MEETING_TRANSCRIPTS TABLE
+CREATE TABLE meeting_transcripts (
+    transcript_id VARCHAR(10) PRIMARY KEY,
+    meeting_id VARCHAR(10),
+    meeting_title VARCHAR(200) NOT NULL,
+    meeting_date DATE NOT NULL,
+    meeting_time TIME,
+    meeting_type VARCHAR(50),
+    department VARCHAR(50),
+    participants TEXT,
+    chairperson VARCHAR(100),
+    secretary VARCHAR(100),
+    meeting_duration_minutes INTEGER,
+    transcript_content TEXT NOT NULL,
+    key_discussion_points TEXT,
+    decisions_made TEXT,
+    action_items TEXT,
+    follow_up_required BOOLEAN,
+    strategic_theme VARCHAR(100),
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    budget_impact DECIMAL(12,2),
+    risk_level VARCHAR(20),
+    compliance_required BOOLEAN,
+    external_participants TEXT,
+    meeting_materials TEXT,
+    approval_required BOOLEAN,
+    decision_deadline DATE,
+    implementation_timeline VARCHAR(100),
+    success_metrics TEXT,
+    transcript_status VARCHAR(20),
+    file_path VARCHAR(200),
+    created_date DATE,
+    last_modified_date DATE,
+    notes TEXT,
+    FOREIGN KEY (meeting_id) REFERENCES executive_meetings(meeting_id)
+);
+
+### 16. DECISION_DOCUMENTS TABLE
+CREATE TABLE decision_documents (
+    document_id VARCHAR(10) PRIMARY KEY,
+    decision_id VARCHAR(10),
+    document_title VARCHAR(200) NOT NULL,
+    document_type VARCHAR(50),
+    document_category VARCHAR(50),
+    document_date DATE NOT NULL,
+    department VARCHAR(50),
+    decision_type VARCHAR(50),
+    document_status VARCHAR(20),
+    executive_summary TEXT,
+    decision_details TEXT,
+    implementation_plan TEXT,
+    budget_allocation DECIMAL(12,2),
+    timeline VARCHAR(100),
+    success_metrics TEXT,
+    risk_assessment TEXT,
+    resource_allocation TEXT,
+    approval_authority TEXT,
+    stakeholders TEXT,
+    compliance_requirements BOOLEAN,
+    regulatory_impact VARCHAR(20),
+    financial_impact DECIMAL(12,2),
+    operational_impact VARCHAR(20),
+    strategic_impact VARCHAR(20),
+    quarter VARCHAR(2),
+    fiscal_year INTEGER,
+    priority_level VARCHAR(20),
+    roi_projection DECIMAL(5,2),
+    risk_level VARCHAR(20),
+    implementation_status VARCHAR(20),
+    document_version VARCHAR(10),
+    file_path VARCHAR(200),
+    created_date DATE,
+    last_modified_date DATE,
+    prepared_by VARCHAR(100),
+    reviewed_by VARCHAR(100),
+    approved_by VARCHAR(100),
+    next_review_date DATE,
+    notes TEXT,
+    FOREIGN KEY (decision_id) REFERENCES strategic_decisions(decision_id)
+);
+
+-- Transcript indexes
+CREATE INDEX idx_meeting_transcripts_meeting_date ON meeting_transcripts(meeting_date);
+CREATE INDEX idx_meeting_transcripts_department ON meeting_transcripts(department);
+CREATE INDEX idx_meeting_transcripts_meeting_type ON meeting_transcripts(meeting_type);
+
+-- Decision document indexes
+CREATE INDEX idx_decision_documents_document_date ON decision_documents(document_date);
+CREATE INDEX idx_decision_documents_department ON decision_documents(department);
+CREATE INDEX idx_decision_documents_document_type ON decision_documents(document_type);
