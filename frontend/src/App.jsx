@@ -1,12 +1,12 @@
 import { clsx } from 'clsx'
-import { AlertCircle, Bell, Bot, CheckCircle, Info, LogOut, Send, Settings, User } from 'lucide-react'
+import { AlertCircle, Bell, Bot, CheckCircle, Info, LogOut, Mic, MicOff, Send, Settings, Sparkles, User, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const ChatApp = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      content: "Hello! I'm Cerebryx, your AI assistant. How can I help you today?",
+      content: "What can I do for you, today?",
       sender: 'ai',
       timestamp: new Date(),
     }
@@ -15,6 +15,13 @@ const ChatApp = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+
+  // Voice input states
+  const [isRecording, setIsRecording] = useState(false)
+  const [recognition, setRecognition] = useState(null)
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false)
+  const [voiceError, setVoiceError] = useState('')
+
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -88,6 +95,86 @@ const ChatApp = () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      const recognitionInstance = new SpeechRecognition()
+
+      recognitionInstance.continuous = false
+      recognitionInstance.interimResults = false
+      recognitionInstance.lang = 'en-US'
+
+      recognitionInstance.onstart = () => {
+        setIsRecording(true)
+        setVoiceError('')
+      }
+
+      recognitionInstance.onresult = (event) => {
+        const transcript = event.results[0][0].transcript
+        setInputValue(prev => prev + transcript)
+        setIsRecording(false)
+      }
+
+      recognitionInstance.onerror = (event) => {
+        console.error('Speech recognition error:', event.error)
+        setVoiceError(event.error)
+        setIsRecording(false)
+      }
+
+      recognitionInstance.onend = () => {
+        setIsRecording(false)
+      }
+
+      setRecognition(recognitionInstance)
+      setIsVoiceSupported(true)
+    } else {
+      setIsVoiceSupported(false)
+    }
+  }, [])
+
+  // Voice input functions
+  const startVoiceRecording = () => {
+    if (!recognition) return
+
+    try {
+      setVoiceError('')
+      recognition.start()
+    } catch (error) {
+      console.error('Error starting voice recognition:', error)
+      setVoiceError('Failed to start voice recognition')
+    }
+  }
+
+  const stopVoiceRecording = () => {
+    if (!recognition) return
+
+    try {
+      recognition.stop()
+      setIsRecording(false)
+    } catch (error) {
+      console.error('Error stopping voice recognition:', error)
+    }
+  }
+
+  // Clear voice error when user starts typing
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value)
+    if (voiceError) {
+      setVoiceError('')
+    }
+  }
+
+  // Clear voice error after a timeout
+  useEffect(() => {
+    if (voiceError) {
+      const timeout = setTimeout(() => {
+        setVoiceError('')
+      }, 5000)
+      return () => clearTimeout(timeout)
+    }
+  }, [voiceError])
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
@@ -250,9 +337,9 @@ const ChatApp = () => {
                     className="w-8 h-8 object-contain drop-shadow-sm"
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-sage-400 to-primary-500 rounded-full border-2 border-white shadow-sm">
+                {/* <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-r from-sage-400 to-primary-500 rounded-full border-2 border-white shadow-sm">
                   <div className="w-full h-full rounded-full bg-white/20"></div>
-                </div>
+                </div> */}
               </div>
               <div>
                 <h1 className="text-lg font-bold gradient-text-primary">
@@ -260,7 +347,7 @@ const ChatApp = () => {
                 </h1>
                 <p className="text-xs text-primary-600 font-semibold flex items-center">
                   <div className="w-2 h-2 bg-primary-400 rounded-full mr-2 shadow-sm"></div>
-                  Online & Ready
+                  Ready to chat!
                 </p>
               </div>
             </div>
@@ -532,16 +619,38 @@ const ChatApp = () => {
                       <textarea
                         ref={textareaRef}
                         value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
+                        onChange={handleInputChange}
                         onKeyPress={handleKeyPress}
                         placeholder="Type your message..."
                         className="w-full resize-none border-0 bg-transparent text-gray-800 placeholder-gray-400 focus:ring-0 focus:outline-none text-sm leading-6 mr-3 font-medium"
                         rows={1}
                         style={{ maxHeight: '120px' }}
                       />
-
-
                     </div>
+
+                    {/* Voice Input Button */}
+                    {isVoiceSupported && (
+                      <button
+                        type="button"
+                        onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+                        className={clsx(
+                          'w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 shadow-button relative overflow-hidden mr-2',
+                          isRecording
+                            ? 'bg-red-500 hover:bg-red-600 shadow-red-200'
+                            : 'glass-morphism-container hover:shadow-button-hover group/voice border border-white/20'
+                        )}
+                        title={isRecording ? 'Stop recording' : 'Start voice input'}
+                      >
+                        {isRecording ? (
+                          <MicOff className="w-4 h-4 text-white drop-shadow-sm animate-pulse" />
+                        ) : (
+                          <Mic className={clsx(
+                            'w-4 h-4 transition-all duration-300 relative z-10',
+                            'text-gray-600 group-hover/voice:text-gray-800'
+                          )} />
+                        )}
+                      </button>
+                    )}
 
                     {/* Send Button */}
                     <button
@@ -554,8 +663,6 @@ const ChatApp = () => {
                           : 'glass-button-primary hover:shadow-button-hover group/btn'
                       )}
                     >
-
-
                       <Send className={clsx(
                         'w-4 h-4 transition-all duration-300 relative z-10',
                         !inputValue.trim() || isLoading
@@ -570,6 +677,33 @@ const ChatApp = () => {
                 {inputValue.length > 0 && (
                   <div className="absolute right-2 -bottom-4 text-xs text-gray-400 font-medium">
                     {inputValue.length} characters
+                  </div>
+                )}
+
+                {/* Voice Recording Indicator */}
+                {isRecording && (
+                  <div className="absolute left-3 -bottom-8 flex items-center space-x-2 text-red-600">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-medium">Listening...</span>
+                  </div>
+                )}
+
+                {/* Voice Error Message */}
+                {voiceError && (
+                  <div className="absolute left-3 -bottom-8 flex items-center space-x-2 text-red-600">
+                    <AlertCircle className="w-3 h-3" />
+                    <span className="text-xs font-medium">
+                      {voiceError === 'not-allowed' ? 'Microphone access denied' :
+                       voiceError === 'no-speech' ? 'No speech detected' :
+                       'Voice input error'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Voice Not Supported Message */}
+                {!isVoiceSupported && (
+                  <div className="absolute left-3 -bottom-8 text-xs text-gray-400 font-medium">
+                    Voice input not supported in this browser
                   </div>
                 )}
               </div>
