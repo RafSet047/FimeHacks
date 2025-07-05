@@ -201,51 +201,104 @@ async def process_document(
 ):
     """Process document: upload → extract → analyze → chunk → embed → store"""
     temp_file_path = None
-    logger.info(f"Processing document upload: {file.filename}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
+    logger.info(f"=== STARTING DOCUMENT PROCESSING ===")
+    logger.info(f"File: {file.filename}")
+    logger.info(f"Content-Type: {file.content_type}")
+    logger.info(f"Size: {file.size if hasattr(file, 'size') else 'unknown'}")
+    logger.info(f"Raw metadata string: {metadata}")
+
+    # Check service availability
+    logger.info("=== SERVICE STATUS CHECK ===")
+    logger.info(f"Google service available: {google_service is not None}")
+    logger.info(f"Milvus database available: {milvus_db is not None}")
+    logger.info(f"Text chunker available: {text_chunker is not None}")
+    logger.info(f"Store agent available: {store_agent is not None}")
+
+    if google_service:
+        try:
+            service_status = google_service.get_service_status()
+            logger.info(f"Google service status: {service_status}")
+        except Exception as status_error:
+            logger.warning(f"Could not get Google service status: {status_error}")
+
+    if milvus_db:
+        try:
+            milvus_health = milvus_db.health_check()
+            logger.info(f"Milvus health check: {milvus_health}")
+        except Exception as health_error:
+            logger.warning(f"Could not check Milvus health: {health_error}")
 
     try:
         # Parse metadata
         try:
             metadata_dict = json.loads(metadata)
-            logger.info(f"Parsed metadata: {metadata_dict}")
-        except json.JSONDecodeError:
+            logger.info(f"Successfully parsed metadata: {metadata_dict}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse metadata JSON: {e}")
             metadata_dict = {"department": "demo", "description": "uploaded document"}
-            logger.warning("Invalid metadata JSON, using defaults")
+            logger.warning(f"Using default metadata: {metadata_dict}")
 
         # Save uploaded file temporarily
+        logger.info("=== SAVING UPLOADED FILE ===")
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
         temp_file_path = temp_file.name
+        logger.info(f"Created temp file: {temp_file_path}")
 
         content = await file.read()
+        logger.info(f"Read {len(content)} bytes from uploaded file")
+
         with open(temp_file_path, 'wb') as f:
             f.write(content)
+        logger.info(f"Saved file to temporary location: {temp_file_path}")
 
         # Extract text
+        logger.info("=== EXTRACTING TEXT ===")
         mime_type = _get_mime_type(file.filename)
-        logger.info(f"Extracting text from {file.filename} (MIME: {mime_type})")
-        extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
+        logger.info(f"Detected MIME type: {mime_type} for file: {file.filename}")
+        logger.info(f"Calling document_extractor.extract_text with path: {temp_file_path}")
+
+        try:
+            extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
+            logger.info(f"Text extraction completed successfully")
+        except Exception as extraction_error:
+            logger.error(f"Text extraction failed: {extraction_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Text extraction failed: {str(extraction_error)}"
+            )
 
         if not extracted_text.strip():
-            logger.error(f"No text extracted from {file.filename}")
+            logger.error(f"No text extracted from {file.filename} - extracted_text is empty or whitespace only")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the file"
             )
 
-        logger.info(f"Extracted {len(extracted_text)} characters from {file.filename}")
+        logger.info(f"Successfully extracted {len(extracted_text)} characters from {file.filename}")
+        logger.info(f"First 200 characters: {extracted_text[:200]}")
 
-        # NEW: StoreAgent Content Analysis
+                # NEW: StoreAgent Content Analysis
+        logger.info("=== ANALYZING CONTENT WITH AI ===")
         analysis_start_time = time.time()
-        logger.info("Analyzing document content with StoreAgent")
-        
+        logger.info("Starting StoreAgent content analysis")
+
         # Use first 2000 characters for analysis to manage LLM context
         analysis_text = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
-        ai_tags = store_agent.analyze_content(analysis_text)
-        
-        analysis_time = time.time() - analysis_start_time
-        logger.info(f"Content analysis completed in {analysis_time:.2f}s, generated tags: {ai_tags}")
+        logger.info(f"Using {len(analysis_text)} characters for AI analysis")
+
+        try:
+            ai_tags = store_agent.analyze_content(analysis_text)
+            analysis_time = time.time() - analysis_start_time
+            logger.info(f"Content analysis completed successfully in {analysis_time:.2f}s")
+            logger.info(f"Generated AI tags: {ai_tags}")
+        except Exception as analysis_error:
+            logger.error(f"AI content analysis failed: {analysis_error}")
+            ai_tags = []
+            analysis_time = time.time() - analysis_start_time
+            logger.warning(f"Continuing without AI tags after {analysis_time:.2f}s")
 
         # Prepare base metadata for all chunks
+        logger.info("=== PREPARING METADATA ===")
         base_metadata = {
             "filename": file.filename,
             "department": metadata_dict.get("department", "demo"),
@@ -257,82 +310,129 @@ async def process_document(
             "analysis_time": analysis_time,
             "upload_timestamp": time.time()
         }
+        logger.info(f"Prepared base metadata: {base_metadata}")
 
         # Chunk text
+        logger.info("=== CHUNKING TEXT ===")
         config = ChunkingConfig(
             chunk_size=500,
             chunk_overlap=50,
             add_start_index=True
         )
 
-        logger.info(f"Chunking text with config: size={config.chunk_size}, overlap={config.chunk_overlap}")
-        chunks = text_chunker.chunk_text(
-            text=extracted_text,
-            strategy=ChunkingStrategy.RECURSIVE,
-            config=config,
-            metadata={"source": file.filename}
-        )
-        logger.info(f"Created {len(chunks)} chunks from {file.filename}")
+        logger.info(f"Chunking with config: size={config.chunk_size}, overlap={config.chunk_overlap}")
+        try:
+            chunks = text_chunker.chunk_text(
+                text=extracted_text,
+                strategy=ChunkingStrategy.RECURSIVE,
+                config=config,
+                metadata={"source": file.filename}
+            )
+            logger.info(f"Successfully created {len(chunks)} chunks from {file.filename}")
+        except Exception as chunk_error:
+            logger.error(f"Text chunking failed: {chunk_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Text chunking failed: {str(chunk_error)}"
+            )
 
         # Process chunks: embed and store with AI-enhanced metadata
+        logger.info("=== PROCESSING CHUNKS: EMBEDDING AND STORING ===")
         document_ids = []
         embeddings_generated = 0
 
         for i, chunk in enumerate(chunks):
+            logger.info(f"Processing chunk {i+1}/{len(chunks)}")
             try:
                 # Generate embeddings
                 chunk_text = chunk.page_content
-                embeddings = google_service.generate_text_embeddings(chunk_text)
+                logger.info(f"Chunk {i+1} text length: {len(chunk_text)} characters")
+                logger.info(f"Chunk {i+1} preview: {chunk_text[:100]}...")
+
+                logger.info(f"Generating embeddings for chunk {i+1}")
+                try:
+                    embeddings = google_service.generate_text_embeddings(chunk_text)
+                    logger.info(f"Successfully generated embeddings for chunk {i+1}")
+                except Exception as embed_error:
+                    logger.error(f"Failed to generate embeddings for chunk {i+1}: {embed_error}")
+                    continue
 
                 if not embeddings:
-                    logger.warning(f"Failed to generate embeddings for chunk {i}")
+                    logger.warning(f"No embeddings returned for chunk {i+1}")
                     continue
 
                 embeddings_generated += 1
+                logger.info(f"Embeddings generated. Vector dimension: {len(embeddings[0])}")
 
                 # Create enhanced metadata using MetadataAdapter
-                chunk_metadata = MetadataAdapter.prepare_chunk_metadata(
-                    base_metadata=base_metadata,
-                    chunk_text=chunk_text,
-                    chunk_index=i,
-                    total_chunks=len(chunks)
-                )
+                logger.info(f"Creating enhanced metadata for chunk {i+1}")
+                try:
+                    chunk_metadata = MetadataAdapter.prepare_chunk_metadata(
+                        base_metadata=base_metadata,
+                        chunk_text=chunk_text,
+                        chunk_index=i,
+                        total_chunks=len(chunks)
+                    )
+                    logger.info(f"Basic chunk metadata prepared for chunk {i+1}")
 
-                # Enhance metadata with AI tags
-                enhanced_metadata = MetadataAdapter.simple_to_enhanced(
-                    simple_metadata=chunk_metadata,
-                    ai_tags=ai_tags,
-                    chunk_info={
-                        "chunk_index": i,
-                        "total_chunks": len(chunks),
-                        "start_index": chunk.metadata.get("start_index", 0),
-                        "end_index": chunk.metadata.get("end_index", 0)
-                    }
-                )
+                    # Enhance metadata with AI tags
+                    enhanced_metadata = MetadataAdapter.simple_to_enhanced(
+                        simple_metadata=chunk_metadata,
+                        ai_tags=ai_tags,
+                        chunk_info={
+                            "chunk_index": i,
+                            "total_chunks": len(chunks),
+                            "start_index": chunk.metadata.get("start_index", 0),
+                            "end_index": chunk.metadata.get("end_index", 0)
+                        }
+                    )
+                    logger.info(f"Enhanced metadata created for chunk {i+1}")
+                except Exception as metadata_error:
+                    logger.error(f"Failed to create metadata for chunk {i+1}: {metadata_error}")
+                    continue
 
                 # Store in Milvus with enhanced metadata
-                doc_id = milvus_db.insert_data(
-                    collection_name="text_embeddings",
-                    vector=embeddings[0],
-                    metadata=enhanced_metadata,
-                    content_type="document",
-                    department=metadata_dict.get("department", "demo"),
-                    file_size=len(chunk_text.encode()),
-                    content_hash=f"chunk_{i}_{file.filename}_{int(time.time())}"
-                )
+                logger.info(f"Storing chunk {i+1} in Milvus database")
+                try:
+                    doc_id = milvus_db.insert_data(
+                        collection_name="text_embeddings",
+                        vector=embeddings[0],
+                        metadata=enhanced_metadata,
+                        content_type="document",
+                        department=metadata_dict.get("department", "demo"),
+                        file_size=len(chunk_text.encode()),
+                        content_hash=f"chunk_{i}_{file.filename}_{int(time.time())}"
+                    )
+                    logger.info(f"Milvus insert operation completed for chunk {i+1}")
+                except Exception as milvus_error:
+                    logger.error(f"Failed to store chunk {i+1} in Milvus: {milvus_error}")
+                    continue
 
                 if doc_id:
                     document_ids.append(doc_id)
-                    logger.info(f"Stored chunk {i+1}/{len(chunks)} with AI tags: {doc_id}")
+                    logger.info(f"✓ Successfully stored chunk {i+1}/{len(chunks)} with ID: {doc_id}")
+                else:
+                    logger.warning(f"No document ID returned for chunk {i+1}")
 
             except Exception as e:
-                logger.error(f"Error processing chunk {i}: {e}")
+                logger.error(f"Unexpected error processing chunk {i+1}: {e}")
+                logger.error(f"Error type: {type(e).__name__}")
                 continue
 
         # Return results with AI analysis information
-        logger.info(f"Document processing complete: {len(chunks)} chunks processed, {len(document_ids)} documents stored, {embeddings_generated} embeddings generated")
-        return ProcessResponse(
-            success=len(document_ids) > 0,
+        logger.info("=== FINALIZING PROCESSING RESULTS ===")
+        logger.info(f"Processing Summary:")
+        logger.info(f"  - Total chunks created: {len(chunks)}")
+        logger.info(f"  - Documents stored: {len(document_ids)}")
+        logger.info(f"  - Embeddings generated: {embeddings_generated}")
+        logger.info(f"  - AI tags: {ai_tags}")
+        logger.info(f"  - Analysis time: {analysis_time:.2f}s")
+
+        success = len(document_ids) > 0
+        logger.info(f"Processing success: {success}")
+
+        response = ProcessResponse(
+            success=success,
             message=f"Processed {len(chunks)} chunks with AI analysis, stored {len(document_ids)} documents",
             document_ids=document_ids,
             chunks_processed=len(chunks),
@@ -341,8 +441,16 @@ async def process_document(
             analysis_time=analysis_time
         )
 
+        logger.info("=== DOCUMENT PROCESSING COMPLETED SUCCESSFULLY ===")
+        return response
+
     except Exception as e:
-        logger.error(f"Document processing failed: {e}")
+        logger.error("=== DOCUMENT PROCESSING FAILED ===")
+        logger.error(f"Error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Document processing failed: {str(e)}"
@@ -350,8 +458,13 @@ async def process_document(
 
     finally:
         # Cleanup temp file
+        logger.info("=== CLEANUP ===")
         if temp_file_path and os.path.exists(temp_file_path):
+            logger.info(f"Cleaning up temporary file: {temp_file_path}")
             os.unlink(temp_file_path)
+            logger.info("Temporary file cleaned up successfully")
+        else:
+            logger.info("No temporary file to clean up")
 
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(request: SearchRequest):
