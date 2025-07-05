@@ -1,0 +1,79 @@
+# dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# production
+build/
+dist/
+out/
+
+# misc
+.env
+.env.*
+*.local
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# testing
+coverage/
+*.lcov
+
+# logs
+logs/
+*.log
+
+# parcel-bundler cache
+.cache/
+
+# storybook
+.storybook-out/
+storybook-static/
+
+# eslint cache
+.eslintcache
+
+# optional npm cache directory
+.npm/
+
+# optional yarn cache directory
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.yarn-error.log
+
+# next.js
+.next/
+
+# vercel
+.vercel/
+
+# netlify
+.netlify/
+
+# firebase
+.firebase/
+
+# temporary files
+tmp/
+temp/
+
+# custom
+public/static/
+# End Generation Here
