@@ -55,9 +55,11 @@ class ChunkingConfig:
         if self.separators is None:
             self.separators = ["\n\n", "\n", ". ", " ", ""]
         if self.headers_to_split_on is None:
+            # Format for MarkdownHeaderTextSplitter: list of tuples (markdown_header, header_name)
             self.headers_to_split_on = [
-                {"level": 1, "name": "Header 1"},
-                {"level": 2, "name": "Header 2"}
+                ("#", "Header 1"),
+                ("##", "Header 2"),
+                ("###", "Header 3")
             ]
 
 class TextChunker:
@@ -106,6 +108,7 @@ class TextChunker:
                 strategy = ChunkingStrategy.CHARACTER
             
             splitter = self._get_text_splitter(strategy, config)
+            logger.info(f"Successfully created text splitter for strategy: {strategy}")
             
             # Add start indices if requested
             if config.add_start_index:
@@ -114,17 +117,29 @@ class TextChunker:
                 
                 current_index = 0
                 for chunk in chunks:
+                    # Handle both string chunks and Document chunks
+                    if isinstance(chunk, Document):
+                        chunk_text = chunk.page_content
+                        chunk_metadata = {**metadata, **chunk.metadata}
+                    else:
+                        chunk_text = chunk
+                        chunk_metadata = metadata.copy()
+                    
                     # Find chunk start in original text
-                    chunk_start = text.find(chunk, current_index)
+                    chunk_start = text.find(chunk_text, current_index)
                     if chunk_start != -1:
-                        current_index = chunk_start + len(chunk)
-                        chunk_metadata = {
-                            **metadata,
+                        current_index = chunk_start + len(chunk_text)
+                        chunk_metadata.update({
                             "start_index": chunk_start,
                             "end_index": current_index
-                        }
+                        })
                         chunks_with_index.append(
-                            Document(page_content=chunk, metadata=chunk_metadata)
+                            Document(page_content=chunk_text, metadata=chunk_metadata)
+                        )
+                    else:
+                        # If we can't find the chunk in the text, add it without indices
+                        chunks_with_index.append(
+                            Document(page_content=chunk_text, metadata=chunk_metadata)
                         )
                 return chunks_with_index
             
@@ -132,7 +147,8 @@ class TextChunker:
             return splitter.create_documents([text], metadatas=[metadata])
             
         except Exception as e:
-            logger.error(f"Error chunking text with strategy {strategy}: {e}")
+            logger.error(f"Error chunking text with strategy {strategy}: {type(e).__name__}: {e}")
+            logger.warning(f"Falling back to basic character chunking for strategy {strategy}")
             # Fallback to basic character chunking
             return self._basic_character_chunking(text, config, metadata)
     
@@ -154,18 +170,43 @@ class TextChunker:
                 )
                 
             elif strategy == ChunkingStrategy.MARKDOWN:
-                return MarkdownHeaderTextSplitter(
+                # For markdown, we need to chain with recursive splitter for proper chunking
+                markdown_splitter = MarkdownHeaderTextSplitter(
                     headers_to_split_on=config.headers_to_split_on
                 )
+                # Chain with recursive splitter to ensure proper chunk sizes
+                recursive_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=config.chunk_size,
+                    chunk_overlap=config.chunk_overlap,
+                    length_function=config.length_function,
+                    separators=config.separators,
+                    keep_separator=config.keep_separator,
+                    strip_whitespace=config.strip_whitespace
+                )
+                # Return a custom splitter that handles markdown then recursive splitting
+                return self._create_markdown_recursive_splitter(markdown_splitter, recursive_splitter)
                 
             elif strategy == ChunkingStrategy.HTML:
+                # HTMLHeaderTextSplitter expects format: [("h1", "Header 1"), ("h2", "Header 2")]
+                html_headers = [
+                    ("h1", "Header 1"),
+                    ("h2", "Header 2"),
+                    ("h3", "Header 3")
+                ]
                 return HTMLHeaderTextSplitter(
-                    headers_to_split_on=config.headers_to_split_on
+                    headers_to_split_on=html_headers
                 )
                 
             elif strategy == ChunkingStrategy.CODE:
+                # Handle language parameter safely
+                try:
+                    language = Language(config.language)
+                except (ValueError, AttributeError):
+                    # Fall back to Python if language is not supported
+                    language = Language.PYTHON
+                
                 return PythonCodeTextSplitter(
-                    language=Language(config.language),
+                    language=language,
                     chunk_size=config.chunk_size,
                     chunk_overlap=config.chunk_overlap,
                     length_function=config.length_function
@@ -182,9 +223,69 @@ class TextChunker:
                 return self._get_text_splitter(ChunkingStrategy.RECURSIVE, config)
                 
         except Exception as e:
-            logger.error(f"Error creating text splitter for strategy {strategy}: {e}")
+            logger.error(f"Error creating text splitter for strategy {strategy}: {type(e).__name__}: {e}")
+            logger.warning(f"Falling back to basic character splitter for strategy {strategy}")
             return self._get_basic_splitter(config)
     
+    def _create_markdown_recursive_splitter(self, markdown_splitter, recursive_splitter):
+        """Create a combined markdown-recursive splitter"""
+        class MarkdownRecursiveSplitter:
+            def __init__(self, md_splitter, rec_splitter):
+                self.md_splitter = md_splitter
+                self.rec_splitter = rec_splitter
+            
+            def split_text(self, text):
+                try:
+                    # First split by markdown headers
+                    md_chunks = self.md_splitter.split_text(text)
+                    
+                    # If we get Document objects, extract text and further split if needed
+                    final_chunks = []
+                    for chunk in md_chunks:
+                        if isinstance(chunk, Document):
+                            chunk_text = chunk.page_content
+                            chunk_metadata = chunk.metadata
+                        else:
+                            chunk_text = chunk
+                            chunk_metadata = {}
+                        
+                        # Further split large chunks using recursive splitter
+                        if len(chunk_text) > self.rec_splitter.chunk_size:
+                            sub_chunks = self.rec_splitter.split_text(chunk_text)
+                            for sub_chunk in sub_chunks:
+                                if isinstance(sub_chunk, Document):
+                                    merged_metadata = {**chunk_metadata, **sub_chunk.metadata}
+                                    final_chunks.append(Document(page_content=sub_chunk.page_content, metadata=merged_metadata))
+                                else:
+                                    final_chunks.append(Document(page_content=sub_chunk, metadata=chunk_metadata))
+                        else:
+                            final_chunks.append(Document(page_content=chunk_text, metadata=chunk_metadata))
+                    
+                    return final_chunks
+                except Exception as e:
+                    logger.warning(f"Markdown splitting failed: {e}, falling back to recursive")
+                    # Fall back to recursive splitting
+                    return self.rec_splitter.split_text(text)
+            
+            def create_documents(self, texts, metadatas=None):
+                """Create documents from texts"""
+                if metadatas is None:
+                    metadatas = [{}] * len(texts)
+                
+                all_chunks = []
+                for text, metadata in zip(texts, metadatas):
+                    chunks = self.split_text(text)
+                    for chunk in chunks:
+                        if isinstance(chunk, Document):
+                            merged_metadata = {**metadata, **chunk.metadata}
+                            all_chunks.append(Document(page_content=chunk.page_content, metadata=merged_metadata))
+                        else:
+                            all_chunks.append(Document(page_content=chunk, metadata=metadata))
+                
+                return all_chunks
+        
+        return MarkdownRecursiveSplitter(markdown_splitter, recursive_splitter)
+
     def _get_basic_splitter(self, config: ChunkingConfig):
         """Get basic character splitter when LangChain is not available"""
         return CharacterTextSplitter(

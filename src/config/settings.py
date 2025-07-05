@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # File storage settings
     storage_path: str = "./storage"
     max_file_size: int = 104857600
-    allowed_file_types: str = "txt,pdf,doc,docx,png,jpg,jpeg,gif,mp3,wav,mp4,avi,mov,xlsx,xls,md"
+    allowed_file_types: str = "txt,pdf,doc,docx,png,jpg,jpeg,gif,mp3,wav,mp4,avi,mov,xlsx,xls,md,markdown,html,htm,tex,latex,py,js,jsx,ts,tsx,java,cpp,c,h,hpp,cs,php,rb,go,rs,swift,kt,scala,r,sql,sh,bash,yaml,yml,json,xml,css,scss,sass,less"
 
     # API Keys
     openai_api_key: Optional[str] = None

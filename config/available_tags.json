@@ -4,6 +4,20 @@
     "description": "Configuration for university document categorization and tagging",
     "version": "1.0.0"
   },
+  "tags": [
+    "academic", "research", "administrative", "student-records",
+    "faculty-info", "curriculum", "policy", "financial", "general",
+    "healthcare", "patient-records", "medical", "clinical", "laboratory",
+    "radiology", "pharmacy", "nursing", "emergency", "surgery",
+    "syllabus", "course_outline", "lecture_notes", "exam", "assignment",
+    "official_document", "regulation", "handbook", "assessment", "evaluation"
+  ],
+  "departments": [
+    "administration", "finance", "hr", "it", "legal", "marketing",
+    "operations", "research", "academic", "student-services",
+    "healthcare", "medical", "nursing", "pharmacy", "laboratory",
+    "emergency", "surgery", "radiology", "general"
+  ],
   "document_categories": {
     "academic": {
       "description": "Academic content and course materials",

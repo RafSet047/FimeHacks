@@ -96,9 +96,21 @@ class FileValidator:
             extension = "gif"
             file_type = "GIF image"
         elif all(byte < 128 for byte in file_content[:1000]):  # Likely text
-            mime_type = "text/plain"
-            extension = "txt"
-            file_type = "text file"
+            # Check if it's markdown content
+            try:
+                content_str = file_content.decode('utf-8', errors='ignore')
+                if self._is_markdown_content(content_str):
+                    mime_type = "text/markdown"
+                    extension = "md"
+                    file_type = "Markdown document"
+                else:
+                    mime_type = "text/plain"
+                    extension = "txt"
+                    file_type = "text file"
+            except:
+                mime_type = "text/plain"
+                extension = "txt"
+                file_type = "text file"
         
         return {
             "mime_type": mime_type,
@@ -110,8 +122,19 @@ class FileValidator:
         """Convert file extension to MIME type"""
         ext_mime_map = {
             "txt": "text/plain",
+            "md": "text/markdown",
+            "markdown": "text/markdown",
             "html": "text/html",
             "htm": "text/html",
+            "tex": "text/x-tex",
+            "latex": "text/x-tex",
+            "py": "text/x-python",
+            "js": "text/javascript",
+            "css": "text/css",
+            "json": "application/json",
+            "xml": "application/xml",
+            "yaml": "text/yaml",
+            "yml": "text/yaml",
             "pdf": "application/pdf",
             "doc": "application/msword",
             "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -131,7 +154,15 @@ class FileValidator:
         """Convert MIME type to file extension"""
         mime_extensions = {
             "text/plain": "txt",
+            "text/markdown": "md",
             "text/html": "html",
+            "text/x-tex": "tex",
+            "text/x-python": "py",
+            "text/javascript": "js",
+            "text/css": "css",
+            "text/yaml": "yaml",
+            "application/json": "json",
+            "application/xml": "xml",
             "application/pdf": "pdf",
             "application/msword": "doc",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -145,6 +176,40 @@ class FileValidator:
             "video/quicktime": "mov"
         }
         return mime_extensions.get(mime_type, "bin")
+    
+    def _is_markdown_content(self, content: str) -> bool:
+        """Check if content has markdown characteristics"""
+        # Common markdown patterns
+        markdown_patterns = [
+            r'^#{1,6}\s+.+$',  # Headers
+            r'^\*\*.*\*\*$',   # Bold text
+            r'^\*.*\*$',       # Italic text
+            r'^[-*+]\s+.+$',   # Lists
+            r'^\d+\.\s+.+$',   # Numbered lists
+            r'^\[.*\]\(.*\)$', # Links
+            r'^```.*```$',     # Code blocks
+            r'^`.*`$',         # Inline code
+            r'^\|.*\|$',       # Tables
+            r'^>\s+.+$',       # Blockquotes
+        ]
+        
+        lines = content.split('\n')[:50]  # Check first 50 lines
+        markdown_indicators = 0
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check each pattern
+            import re
+            for pattern in markdown_patterns:
+                if re.match(pattern, line, re.MULTILINE):
+                    markdown_indicators += 1
+                    break
+        
+        # If more than 10% of lines have markdown indicators, consider it markdown
+        return markdown_indicators > len([l for l in lines if l.strip()]) * 0.1
     
     def validate_file(self, filename: str, file_size: int, file_content: bytes) -> Dict[str, Any]:
         """Comprehensive file validation"""

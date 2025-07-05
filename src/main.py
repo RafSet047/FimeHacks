@@ -368,21 +368,32 @@ async def process_document(
         analysis_start_time = time.time()
         logger.info("Starting StoreAgent content analysis")
 
-        # Use first 2000 characters for analysis to manage LLM context
-        #analysis_text = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
+        # Use full extracted text for analysis
         analysis_text = extracted_text
         logger.info(f"Using {len(analysis_text)} characters for AI analysis")
 
         try:
-            ai_tags = store_agent.analyze_content(analysis_text)
+            ai_analysis = store_agent.analyze_content(analysis_text)
             analysis_time = time.time() - analysis_start_time
             logger.info(f"Content analysis completed successfully in {analysis_time:.2f}s")
-            logger.info(f"Generated AI tags: {ai_tags}")
+            logger.info(f"Generated AI analysis: {ai_analysis}")
+            
+            # Extract individual components
+            ai_tags = ai_analysis.get('tags', ['general'])
+            ai_description = ai_analysis.get('description', 'Document content analysis')
+            ai_department = ai_analysis.get('department', 'general')
+            
+            logger.info(f"AI Tags: {ai_tags}")
+            logger.info(f"AI Description: {ai_description}")
+            logger.info(f"AI Department: {ai_department}")
+            
         except Exception as analysis_error:
             logger.error(f"AI content analysis failed: {analysis_error}")
-            ai_tags = []
+            ai_tags = ['general']
+            ai_description = 'Error analyzing document content'
+            ai_department = 'general'
             analysis_time = time.time() - analysis_start_time
-            logger.warning(f"Continuing without AI tags after {analysis_time:.2f}s")
+            logger.warning(f"Continuing with default values after {analysis_time:.2f}s")
 
         # Prepare base metadata for all chunks
         logger.info("=== PREPARING METADATA ===")
@@ -390,9 +401,9 @@ async def process_document(
             "filename": upload_result.get("filename", file.filename),
             "original_filename": upload_result.get("original_filename", file.filename),
             "file_id": upload_result.get("file_id"),
-            "department": upload_result.get("department", "demo"),
-            "description": metadata_dict.get("description", ""),
-            "tags": upload_result.get("tags", []),
+            "department": ai_department,  # Use AI-generated department
+            "description": ai_description,  # Use AI-generated description
+            "tags": ai_tags,
             "project": upload_result.get("project", ""),
             "content_length": len(extracted_text),
             "mime_type": mime_type,
@@ -407,9 +418,15 @@ async def process_document(
         # Chunk text
         logger.info("=== CHUNKING TEXT ===")
         
-        # Determine chunking strategy based on file extension
-        chunking_strategy = determine_chunking_strategy(file.filename)
-        logger.info(f"Selected chunking strategy: {chunking_strategy} for file: {file.filename}")
+        # Determine chunking strategy based on detected file type
+        detected_extension = upload_result.get("file_type", "")
+        if detected_extension:
+            chunking_strategy = determine_chunking_strategy(f"file.{detected_extension}")
+            logger.info(f"Selected chunking strategy: {chunking_strategy} for file: {file.filename} (detected as: {detected_extension})")
+        else:
+            # Fallback to original filename if detection failed
+            chunking_strategy = determine_chunking_strategy(file.filename)
+            logger.info(f"Selected chunking strategy: {chunking_strategy} for file: {file.filename} (using filename extension as fallback)")
         
         config = ChunkingConfig(
             chunk_size=512,
@@ -513,7 +530,7 @@ async def process_document(
                         vector=embeddings[0],
                         metadata=enhanced_metadata,
                         content_type="document",
-                        department=metadata_dict.get("department", "demo"),
+                        department=ai_department,  # Use AI-generated department
                         file_size=len(chunk_text.encode()),
                         content_hash=content_hash
                     )
@@ -548,7 +565,7 @@ async def process_document(
             file_size=upload_result.get("file_size"),
             file_type=upload_result.get("file_type"),
             database_id=upload_result.get("database_id"),
-            department=upload_result.get("department"),
+            department=ai_department,  # Use AI-generated department
             project=upload_result.get("project")
         )
 
@@ -581,6 +598,7 @@ async def process_document(
 async def search_documents(request: SearchRequest):
     """Vector search for similar documents"""
     try:
+        request.limit = 5
         logger.info(f"Search request received: query='{request.query[:50]}...', limit={request.limit}")
 
         # Generate query embeddings

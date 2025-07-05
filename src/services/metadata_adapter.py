@@ -43,8 +43,8 @@ class MetadataAdapter:
                 "ai_analysis_timestamp": time.time(),
                 "agent_name": "StoreAgent",
                 
-                # Combined tags for search
-                "tags": simple_metadata.get("tags", []) + ai_tags,
+                # Use only AI tags
+                "tags": ai_tags,
                 
                 # Chunk information
                 "chunk_info": chunk_info or {},
