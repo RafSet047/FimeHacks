@@ -42,6 +42,9 @@ class MilvusVectorDatabase:
         self.collections: Dict[str, Collection] = {}
         self.is_connected = False
         
+        # Load university document tags configuration
+        self.university_tags_config = self._load_university_tags_config()
+        
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'MilvusVectorDatabase':
         """Create database instance from dictionary configuration (for UI integration)"""
@@ -103,6 +106,46 @@ class MilvusVectorDatabase:
             logger.error(f"Failed to list collections: {e}")
             return []
     
+    def drop_collection(self, collection_name: str) -> bool:
+        """Drop a collection if it exists"""
+        try:
+            if utility.has_collection(collection_name):
+                utility.drop_collection(collection_name)
+                if collection_name in self.collections:
+                    del self.collections[collection_name]
+                logger.info(f"Dropped collection: {collection_name}")
+                return True
+            return True
+        except Exception as e:
+            logger.error(f"Failed to drop collection {collection_name}: {e}")
+            return False
+    
+    def get_collection_vector_dim(self, collection_name: str) -> Optional[int]:
+        """Get the vector dimension of an existing collection"""
+        try:
+            if not utility.has_collection(collection_name):
+                return None
+            
+            collection = Collection(collection_name)
+            # Get schema and find vector field dimension
+            schema = collection.schema
+            for field in schema.fields:
+                if field.dtype == DataType.FLOAT_VECTOR and field.name == "vector":
+                    # Different ways to get dimension depending on Milvus version
+                    if hasattr(field, 'params') and field.params:
+                        dim = field.params.get('dim')
+                        if dim is not None:
+                            return dim
+                    if hasattr(field, 'dim'):
+                        return field.dim
+                    # For some versions, the dimension might be in the field description
+                    logger.warning(f"Could not determine vector dimension for field {field.name}")
+                    return None
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get vector dimension for {collection_name}: {e}")
+            return None
+    
     def _create_collection_schema(self, collection_config: CollectionConfig) -> CollectionSchema:
         """Create collection schema from Pydantic configuration"""
         vector_dim = collection_config.vector_dim
@@ -130,22 +173,29 @@ class MilvusVectorDatabase:
         
         return schema
     
-    def create_collection(self, collection_name: str) -> bool:
+    def create_collection(self, collection_name: str, vector_dim: Optional[int] = None) -> bool:
         """Create a collection based on configuration"""
         if collection_name not in self.config.collections:
             logger.info(f"Collection {collection_name} not found in configuration, creating with default text_embeddings config")
             # Use text_embeddings as template for new collections
             default_config = self.config.collections["text_embeddings"]
+            
+            # Override vector dimension if provided
+            actual_vector_dim = vector_dim if vector_dim is not None else default_config.vector_dim
+            
             self.config.collections[collection_name] = CollectionConfig(
                 name=collection_name,
                 description=f"Dynamically created collection: {collection_name}",
-                vector_dim=default_config.vector_dim,
+                vector_dim=actual_vector_dim,
                 content_types=default_config.content_types,
                 organization_types=default_config.organization_types,
                 agentic_description=default_config.agentic_description,
                 enabled=True,
                 index_config=default_config.index_config
             )
+        elif vector_dim is not None:
+            # Override vector dimension for existing collection config
+            self.config.collections[collection_name].vector_dim = vector_dim
             
         collection_config = self.config.collections[collection_name]
         
@@ -157,16 +207,23 @@ class MilvusVectorDatabase:
         try:
             # Check if collection already exists
             if utility.has_collection(collection_name):
-                logger.info(f"Collection {collection_name} already exists")
-                self.collections[collection_name] = Collection(collection_name)
-                return True
+                existing_dim = self.get_collection_vector_dim(collection_name)
+                if existing_dim != collection_config.vector_dim:
+                    logger.warning(f"Collection {collection_name} exists with dimension {existing_dim}, but need {collection_config.vector_dim}")
+                    logger.info(f"Dropping and recreating collection {collection_name}")
+                    if not self.drop_collection(collection_name):
+                        return False
+                else:
+                    logger.info(f"Collection {collection_name} already exists with correct dimension")
+                    self.collections[collection_name] = Collection(collection_name)
+                    return True
             
             # Create new collection
             schema = self._create_collection_schema(collection_config)
             collection = Collection(collection_name, schema)
             self.collections[collection_name] = collection
             
-            logger.info(f"Created collection: {collection_name}")
+            logger.info(f"Created collection: {collection_name} with vector dimension: {collection_config.vector_dim}")
             return True
             
         except Exception as e:
@@ -178,7 +235,7 @@ class MilvusVectorDatabase:
         success = True
         for collection_name, collection_config in self.config.collections.items():
             if collection_config.enabled:
-                if not self.create_collection(collection_name):
+                if not self.create_collection(collection_name, collection_config.vector_dim):
                     success = False
         return success
     
@@ -241,9 +298,24 @@ class MilvusVectorDatabase:
                    content_type: str, department: str, file_size: int, content_hash: str) -> Optional[str]:
         """Legacy insert method for backward compatibility"""
         try:
-            if collection_name not in self.collections:
-                if not self.create_collection(collection_name):
-                    return None
+            # Always ensure collection exists and has correct dimension
+            vector_dim = len(vector)
+            logger.info(f"Inserting vector of dimension {vector_dim} into collection {collection_name}")
+            
+            # Check if collection exists in Milvus and has correct dimension
+            if utility.has_collection(collection_name):
+                existing_dim = self.get_collection_vector_dim(collection_name)
+                logger.info(f"Collection {collection_name} exists with dimension {existing_dim}")
+                if existing_dim != vector_dim:
+                    logger.warning(f"Dimension mismatch: existing={existing_dim}, needed={vector_dim}. Dropping collection.")
+                    if not self.drop_collection(collection_name):
+                        logger.error(f"Failed to drop collection {collection_name}")
+                        return None
+            
+            # Create or recreate collection with correct dimension
+            if not self.create_collection(collection_name, vector_dim):
+                logger.error(f"Failed to create collection {collection_name}")
+                return None
             
             collection = self.collections[collection_name]
             
@@ -352,6 +424,34 @@ class MilvusVectorDatabase:
             logger.error(f"Vector search failed in {collection_name}: {e}")
             return []
     
+    def _load_university_tags_config(self) -> Dict[str, Any]:
+        """Load university document tags configuration from JSON file"""
+        try:
+            config_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                'config',
+                'university_document_tags.json'
+            )
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            else:
+                logger.warning(f"University tags config file not found at {config_path}")
+                return {}
+        except Exception as e:
+            logger.error(f"Failed to load university tags config: {e}")
+            return {}
+    
+    def get_possible_tags(self) -> List[str]:
+        """Get all possible tags from university document configuration"""
+        tags = []
+        if self.university_tags_config and 'document_categories' in self.university_tags_config:
+            for category_info in self.university_tags_config['document_categories'].values():
+                if 'tags' in category_info:
+                    tags.extend(category_info['tags'])
+        return sorted(list(set(tags)))  # Remove duplicates and sort
+    
     def metadata_search(self, collection_name: str, filter_expr: str, 
                        limit: int = 10) -> List[Dict[str, Any]]:
         """Search based on metadata filters only"""
@@ -423,4 +523,116 @@ class MilvusVectorDatabase:
             "audit_logging_enabled": self.config.enable_audit_logging,
             "total_collections": len(self.config.collections),
             "enabled_collections": len([c for c in self.config.collections.values() if c.enabled])
-        } 
+        }
+    
+    def get_stored_documents(self, collection_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Retrieve stored documents with their content and tags for testing/verification
+        
+        Args:
+            collection_name: Name of the collection to query
+            limit: Maximum number of documents to retrieve
+            
+        Returns:
+            List of documents with their metadata, tags, and content
+        """
+        try:
+            if collection_name not in self.collections:
+                logger.error(f"Collection {collection_name} not found")
+                return []
+            
+            collection = self.collections[collection_name]
+            collection.load()
+            
+            # Query all documents
+            results = collection.query(
+                expr="id != ''",  # Get all documents
+                output_fields=["id", "metadata", "content_type", "department", "role", 
+                             "organization_type", "security_level", "timestamp", "content_hash"],
+                limit=limit
+            )
+            
+            # Process results to extract content and tags
+            documents = []
+            for result in results:
+                metadata = result.get("metadata")
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                
+                document = {
+                    "id": result.get("id"),
+                    "content": metadata.get("content", ""),
+                    "tags": metadata.get("tags", []),
+                    "content_type": result.get("content_type"),
+                    "department": result.get("department"),
+                    "role": result.get("role"),
+                    "organization_type": result.get("organization_type"),
+                    "security_level": result.get("security_level"),
+                    "timestamp": result.get("timestamp"),
+                    "content_hash": result.get("content_hash"),
+                    "processed_at": metadata.get("processed_at"),
+                    "agent_name": metadata.get("agent_name")
+                }
+                documents.append(document)
+            
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve documents from {collection_name}: {e}")
+            return []
+    
+    def search_by_tags(self, collection_name: str, tags: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search documents by tags
+        
+        Args:
+            collection_name: Name of the collection to search
+            tags: List of tags to search for
+            limit: Maximum number of results
+            
+        Returns:
+            List of matching documents
+        """
+        try:
+            if collection_name not in self.collections:
+                logger.error(f"Collection {collection_name} not found")
+                return []
+            
+            collection = self.collections[collection_name]
+            collection.load()
+            
+            # Query documents and filter by tags in Python since JSON array filtering in Milvus is complex
+            results = collection.query(
+                expr="id != ''",  # Get all documents
+                output_fields=["id", "metadata", "content_type", "department", "timestamp"],
+                limit=limit * 2  # Get more results to filter
+            )
+            
+            # Filter results by tags
+            matching_documents = []
+            for result in results:
+                metadata = result.get("metadata")
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+                
+                doc_tags = metadata.get("tags", [])
+                if any(tag in doc_tags for tag in tags):
+                    document = {
+                        "id": result.get("id"),
+                        "content": metadata.get("content", ""),
+                        "tags": doc_tags,
+                        "content_type": result.get("content_type"),
+                        "department": result.get("department"),
+                        "timestamp": result.get("timestamp"),
+                        "matching_tags": [tag for tag in tags if tag in doc_tags]
+                    }
+                    matching_documents.append(document)
+                    
+                    if len(matching_documents) >= limit:
+                        break
+            
+            return matching_documents
+            
+        except Exception as e:
+            logger.error(f"Failed to search by tags in {collection_name}: {e}")
+            return [] 

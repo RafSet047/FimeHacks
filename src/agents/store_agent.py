@@ -5,6 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import hashlib
 import time
+import random
 
 from src.agents.base_agent import BaseAgent
 from src.database.milvus_db import MilvusVectorDatabase
@@ -20,10 +21,11 @@ class StoreAgent(BaseAgent):
     """
     
     def __init__(self, 
+                 postgres_db,
+                 milvus_db,
                  name: str = "StoreAgent",
                  description: str = "Processes raw data and stores embeddings in Milvus",
-                 config: Optional[Dict[str, Any]] = None,
-                 db: Optional[MilvusVectorDatabase] = None):
+                 config: Optional[Dict[str, Any]] = None):
         """
         Initialize Store Agent
         
@@ -37,8 +39,9 @@ class StoreAgent(BaseAgent):
         # Initialize components
         #self.embeddings_model = self._initialize_embeddings()
         #self.text_splitter = self._initialize_text_splitter()
-        self.db = db #if db is not None else self._initialize_database()
-        self.llm = self._initialize_lmm()
+        self.postgres_db = postgres_db #if db is not None else self._initialize_database()
+        self.milvus_db = milvus_db
+        self.llm = self._initialize_llm()
         
         # Default configuration
         self.default_config = {
@@ -46,200 +49,140 @@ class StoreAgent(BaseAgent):
             'chunk_overlap': 200,
             'collection_name': 'documents',
             'embedding_model': 'text-embedding-ada-002',
-            'max_errors': 5
+            'max_errors': 5,
+            'vector_dim': 3072
         }
         
         # Update with provided config
         self.config = {**self.default_config, **self.config}
     
-    def classify_and_store_query(self, query: str) -> str:
-        tags = self.analyze_content(query)
-
-        splitted_text = self.split_text(query)
-        embeddings = self.embed_text(splitted_text)
-
-        self.store_embeddings(tags, embeddings)
-
-        return embeddings
+    def _generate_dummy_embedding(self, dimension: int = 1536) -> List[float]:
+        """Generate dummy embedding vector for testing purposes"""
+        return [random.uniform(-1.0, 1.0) for _ in range(dimension)]
     
-    def store_embeddings(self, tags: List[str], embeddings: List[List[float]]) -> List[str]:
-        self.db.store_embeddings(tags, embeddings)
+    def classify_and_store_query(self, query: str, collection_name: str = "documents") -> Dict[str, Any]:
+        """
+        Classify query content and store it in Milvus with tags
+        
+        Args:
+            query: Raw text content to analyze and store
+            collection_name: Milvus collection name
+            
+        Returns:
+            Dictionary with storage results
+        """
+        try:
+            print(f"Query: {query}")
+            
+            # Analyze content to get tags
+            tags = self.analyze_content(query)
+            print(f"Tags: {tags}")
+            
+            # Generate dummy embedding
+            dummy_embedding = self._generate_dummy_embedding(self.config['vector_dim'])
+            
+            # Create metadata with tags and raw text
+            metadata = {
+                "content": query,
+                "tags": tags if isinstance(tags, list) else [tags],
+                "processed_at": time.time(),
+                "agent_name": self.name,
+                "organizational": {
+                    "role": "user",
+                    "organization_type": "university",
+                    "security_level": "internal"
+                }
+            }
+            
+            # Calculate content hash
+            content_hash = hashlib.sha256(query.encode()).hexdigest()
+            
+            # Store in Milvus (insert_data will handle collection creation/dimension checking)
+            doc_id = self.milvus_db.insert_data(
+                collection_name=collection_name,
+                vector=dummy_embedding,
+                metadata=metadata,
+                content_type="text",
+                department="general",
+                file_size=len(query.encode()),
+                content_hash=content_hash
+            )
+            
+            if doc_id:
+                print(f"Successfully stored document with ID: {doc_id}")
+                return {
+                    'success': True,
+                    'document_id': doc_id,
+                    'tags': tags,
+                    'content_length': len(query),
+                    'collection_name': collection_name,
+                    'embedding_dim': len(dummy_embedding)
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to store document in Milvus',
+                    'tags': tags
+                }
+                
+        except Exception as e:
+            print(f"Error in classify_and_store_query: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'tags': None
+            }
+    
+    def get_analyze_prompt(self, content: str, milvus_tags: List[str]) -> str:
+        """Generate prompt for content analysis"""
+        return f"""
+        You are a document classifier. Use the provided tags to classify the document. 
+        Each document can have multiple tags.
 
-    def get_analyze_prompt(self, content: str, db_structure: Dict[str, Any]) -> str:
-        #TODO: Specify response format
-        return """
-        You are a helpful assistant that analyzes content and returns tags.
-        You are given a content and a database structure.
-        You need to analyze the content and return tags.
+        Input:
+            Tags: {milvus_tags}    # allowed labels
+            Text: {content}
+            Instructions
 
-        Tags are a list of strings that describe the content.
-
-        Content:
-        {content}
-
-        Database structure:
-        {db_structure}
+        Read Text and select every tag from Tags that truly describes Text.
+        Output the chosen tags, one per line.
         """
     
-    def analyze_content(self, input_data: str) -> Dict[str, Any]:
-        db_structure = self.db.get_db_structure()
-        analyze_prompt = self.get_analyze_prompt(input_data, db_structure)
-        response = self.llm.invoke(analyze_prompt)
-        return response.content
+    def analyze_content(self, input_data: str) -> List[str]:
+        """
+        Analyze content and return applicable tags
         
-        
-        
-        
-#    def _initialize_embeddings(self) -> OpenAIEmbeddings:
-#        """Initialize embedding model"""
-#        try:
-#            return OpenAIEmbeddings(
-#                model=self.config.get('embedding_model', 'text-embedding-ada-002')
-#            )
-#        except Exception as e:
-#            logger.error(f"Failed to initialize embeddings: {e}")
-#            raise
-#    
-#    def _initialize_text_splitter(self) -> RecursiveCharacterTextSplitter:
-#        """Initialize text splitter"""
-#        return RecursiveCharacterTextSplitter(
-#            chunk_size=self.config.get('chunk_size', 1000),
-#            chunk_overlap=self.config.get('chunk_overlap', 200),
-#            length_function=len,
-#            separators=["\n\n", "\n", " ", ""]
-#        )
-#    
-#    #TODO: Do this in base class?
-#
-#    def _initialize_database(self) -> MilvusVectorDatabase:
-#        """Initialize Milvus database connection"""
-#        try:
-#            db = MilvusVectorDatabase()
-#            if not db.connect():
-#                raise Exception("Failed to connect to Milvus")
-#            return db
-#        except Exception as e:
-#            logger.error(f"Failed to initialize database: {e}")
-#            raise
-#    
-#    def validate_input(self, input_data: Union[str, Dict[str, Any]]) -> bool:
-#        """
-#        Validate input data
-#        
-#        Args:
-#            input_data: Raw data (string or dict with 'content' key)
-#        """
-#        if isinstance(input_data, str):
-#            return len(input_data.strip()) > 0
-#        elif isinstance(input_data, dict):
-#            return 'content' in input_data and len(str(input_data['content']).strip()) > 0
-#        return False
-#    
-#    def process(self, input_data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
-#        """
-#        Process raw data: split, embed, and store in Milvus
-#        
-#        Args:
-#            input_data: Raw data (string or dict with metadata)
-#            
-#        Returns:
-#            Dict with processing results
-#        """
-#        try:
-#            if not self.is_active:
-#                raise Exception("Agent is not active")
-#            
-#            if not self.validate_input(input_data):
-#                raise ValueError("Invalid input data")
-#            
-#            # Extract content and metadata
-#            if isinstance(input_data, str):
-#                content = input_data
-#                metadata = {}
-#            else:
-#                content = input_data['content']
-#                metadata = {k: v for k, v in input_data.items() if k != 'content'}
-#            
-#            # Split text into chunks
-#            documents = self.text_splitter.split_text(content)
-#            logger.info(f"Split content into {len(documents)} chunks")
-#            
-#            # Generate embeddings and store
-#            stored_ids = []
-#            for i, doc_text in enumerate(documents):
-#                try:
-#                    # Generate embedding
-#                    embedding = self.embeddings_model.embed_query(doc_text)
-#                    
-#                    # Create document metadata
-#                    doc_metadata = {
-#                        'chunk_index': i,
-#                        'total_chunks': len(documents),
-#                        'content': doc_text,
-#                        'content_type': metadata.get('content_type', 'text'),
-#                        'department': metadata.get('department', 'general'),
-#                        'role': metadata.get('role', 'all'),
-#                        'organization_type': metadata.get('organization_type', 'general'),
-#                        'security_level': metadata.get('security_level', 'public'),
-#                        **metadata
-#                    }
-#                    
-#                    # Calculate content hash
-#                    content_hash = hashlib.sha256(doc_text.encode()).hexdigest()
-#                    
-#                    # Store in Milvus
-#                    doc_id = self.db.insert_document(
-#                        collection_name=self.config['collection_name'],
-#                        vector=embedding,
-#                        metadata=doc_metadata,
-#                        file_size=len(doc_text.encode()),
-#                        content_hash=content_hash
-#                    )
-#                    
-#                    if doc_id:
-#                        stored_ids.append(doc_id)
-#                        logger.debug(f"Stored chunk {i+1}/{len(documents)} with ID: {doc_id}")
-#                    
-#                except Exception as e:
-#                    logger.error(f"Failed to process chunk {i}: {e}")
-#                    self.handle_error(e, f"chunk_processing_{i}")
-#            
-#            return {
-#                'success': True,
-#                'total_chunks': len(documents),
-#                'stored_chunks': len(stored_ids),
-#                'stored_ids': stored_ids,
-#                'collection_name': self.config['collection_name']
-#            }
-#            
-#        except Exception as e:
-#            self.handle_error(e, "process_input")
-#            return {
-#                'success': False,
-#                'error': str(e),
-#                'total_chunks': 0,
-#                'stored_chunks': 0,
-#                'stored_ids': []
-#            }
-#    
-#    def get_processing_stats(self) -> Dict[str, Any]:
-#        """Get processing statistics"""
-#        try:
-#            stats = self.db.get_stats(self.config['collection_name'])
-#            return {
-#                'collection_name': self.config['collection_name'],
-#                'total_documents': stats.get('total_documents', 0),
-#                'collection_size': stats.get('collection_size', 0),
-#                'agent_status': self.get_status()
-#            }
-#        except Exception as e:
-#            logger.error(f"Failed to get stats: {e}")
-#            return {'error': str(e)}
-#    
-#    def cleanup(self):
-#        """Cleanup resources"""
-#        try:
-#            if hasattr(self, 'db'):
-#                self.db.disconnect()
-#        except Exception as e:
-#            logger.error(f"Error during cleanup: {e}") 
+        Args:
+            input_data: Raw text to analyze
+            
+        Returns:
+            List of applicable tags
+        """
+        try:
+            milvus_tags = self.milvus_db.get_possible_tags()
+            print(f"Milvus tags: {milvus_tags}")
+            
+            analyze_prompt = self.get_analyze_prompt(input_data, milvus_tags)
+            response = self.llm.generate_content(analyze_prompt)
+            
+            # Parse response to extract tags
+            if hasattr(response, 'text'):
+                tags_text = response.text
+            else:
+                tags_text = str(response)
+                
+            # Split by lines and clean up
+            tags = [tag.strip() for tag in tags_text.split('\n') if tag.strip()]
+            
+            # Filter to only include valid tags
+            valid_tags = [tag for tag in tags if tag in milvus_tags]
+            
+            # If no valid tags found, return a default tag
+            if not valid_tags:
+                valid_tags = ['general']
+                
+            return valid_tags
+            
+        except Exception as e:
+            print(f"Error in analyze_content: {e}")
+            return ['general']  # Default tag if analysis fails

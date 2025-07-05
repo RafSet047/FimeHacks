@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     google_api_key: Optional[str] = None
+
+    # LLM settings
+    llm_model: str = "gemini-2.5-flash"
     
     # Vector database settings
     chroma_persist_directory: str = "./chroma_db"

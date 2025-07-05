@@ -92,7 +92,6 @@ class UniversityMetadata(BaseModel):
     grant_number: Optional[str] = None
     publication_type: Optional[str] = None
 
-
 class ProcessingMetadata(BaseModel):
     """Metadata related to file processing"""
     model_config = ConfigDict(use_enum_values=True)

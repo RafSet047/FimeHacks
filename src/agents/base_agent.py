@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 import logging
+import os
 from langchain.schema import BaseMessage
 from langchain.agents import AgentExecutor
 from langchain.tools import BaseTool
-from langchain_openai import ChatOpenAI
+#from langchain_google_genai import ChatGoogleGenerativeAI
+import google.generativeai as genai
 
 from src.database.milvus_db import MilvusVectorDatabase
 from src.database.config import CollectionConfig
@@ -105,6 +107,9 @@ class BaseAgent(ABC):
     def __repr__(self) -> str:
         return self.__str__() 
 
-    def _initialize_lmm(self) -> ChatOpenAI:
-        """Initialize LMM"""
-        return ChatOpenAI(model=settings.lmm_model)
+    def _initialize_llm(self) -> genai.GenerativeModel:
+        """Initialize LLM with Google Gemini"""
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        model = genai.GenerativeModel(settings.llm_model)
+
+        return model
