@@ -53,6 +53,9 @@ app.add_middleware(
 # Mount React build assets
 app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
+# Mount Admin Panel build assets
+app.mount("/admin/assets", StaticFiles(directory="admin-panel/dist/assets"), name="admin_assets")
+
 # Include routers
 app.include_router(file_upload_router)
 
@@ -434,6 +437,31 @@ def _get_mime_type(filename: str) -> str:
     }
 
     return mime_types.get(extension, 'text/plain')
+
+@app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin/", response_class=HTMLResponse)
+async def serve_admin_panel():
+    """Serve the admin panel application"""
+    try:
+        with open("admin-panel/dist/index.html", "r") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>Admin panel not built yet. Run: cd admin-panel && npm run build</h1>",
+            status_code=404
+        )
+
+@app.get("/admin/{path:path}", response_class=HTMLResponse)
+async def serve_admin_panel_catch_all(path: str):
+    """Serve the admin panel for all /admin/* routes (client-side routing)"""
+    try:
+        with open("admin-panel/dist/index.html", "r") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>Admin panel not built yet. Run: cd admin-panel && npm run build</h1>",
+            status_code=404
+        )
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_react_app():
