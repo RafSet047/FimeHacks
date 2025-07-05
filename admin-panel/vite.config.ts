@@ -19,6 +19,29 @@ export default defineConfig(({ command }) => ({
   server: {
     host: "0.0.0.0",
     port: 3001,
+    proxy: {
+      // Proxy API requests to the backend server
+      "/process": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/search": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/health": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   build: {
     outDir: "dist",
