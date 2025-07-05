@@ -1,0 +1,25 @@
+# PostgreSQL Database Requirements
+# Core PostgreSQL adapter
+psycopg2-binary==2.9.9
+
+# Alternative PostgreSQL adapter (if psycopg2-binary doesn't work)
+# psycopg2==2.9.9
+
+# Data manipulation and analysis (optional but useful)
+pandas==2.1.4
+
+# Environment variable management
+python-dotenv==1.0.0
+
+# Additional utilities
+python-dateutil==2.8.2
+
+# Development and testing dependencies (optional)
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Logging and configuration
+pyyaml==6.0.1
+
+# Type hints support
+typing-extensions==4.8.0 
