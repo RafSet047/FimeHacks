@@ -1,71 +1,97 @@
-# Unified Requirements - Combines all dependencies with resolved conflicts
-# Replaces: requirements.txt, requirements_milvus.txt, and requirements_test.txt
-
-# Core FastAPI and web framework
-fastapi==0.115.14
-uvicorn==0.35.0
-
-# Database and ORM
-sqlalchemy==2.0.41
+aiofiles==24.1.0
+aiohappyeyeballs==2.6.1
+aiohttp==3.12.13
+aiosignal==1.4.0
 alembic==1.16.2
-psycopg2-binary
-
-# Pydantic - Use specific versions compatible with Python 3.13
+annotated-types==0.7.0
+anyio==4.9.0
+attrs==25.3.0
+audioop-lts==0.2.1
+cachetools==5.5.2
+certifi==2025.6.15
+charset-normalizer==3.4.2
+click==8.2.1
+coverage==7.9.2
+dataclasses-json==0.6.7
+fastapi==0.115.14
+frozenlist==1.7.0
+fsspec==2024.12.0
+google-ai-generativelanguage==0.6.15
+google-api-core==2.25.1
+google-api-python-client==2.175.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-cloud-speech==2.33.0
+google-generativeai==0.8.5
+googleapis-common-protos==1.70.0
+greenlet==3.2.3
+grpcio==1.73.1
+grpcio-status==1.71.2
+grpcio-tools==1.67.1
+h11==0.16.0
+httpcore==1.0.9
+httplib2==0.22.0
+httpx==0.28.1
+httpx-sse==0.4.1
+idna==3.10
+iniconfig==2.1.0
+jsonpatch==1.33
+jsonpointer==3.0.0
+langchain==0.3.26
+langchain-community==0.3.27
+langchain-core==0.3.68
+langchain-text-splitters==0.3.8
+langsmith==0.4.4
+Mako==1.3.10
+MarkupSafe==3.0.2
+marshmallow==3.26.1
+milvus-lite==2.5.1
+multidict==6.6.3
+mypy_extensions==1.1.0
+numpy==2.3.1
+orjson==3.10.18
+packaging==24.2
+pandas==2.3.0
+pluggy==1.6.0
+propcache==0.3.2
+proto-plus==1.26.1
+protobuf==5.29.5
+psycopg2-binary==2.9.10
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
 pydantic==2.11.7
 pydantic-settings==2.10.1
-pydantic-core==2.33.2
-
-python-dotenv==1.1.1
-python-dateutil==2.9.0
-
-aiofiles==24.1.0
-python-multipart==0.0.20
-python-magic==0.4.27
-
-# Milvus - Use specific version to avoid build issues
-pymilvus>=2.5.0
-protobuf>=3.20.0
-grpcio>=1.49.0
-grpcio-tools>=1.49.0
-ujson>=5.4.0
-
-# NumPy - Use version compatible with Python 3.13
-numpy>=1.26.0,<2.0.0
-
-# Pandas - Use version with Python 3.13 support
-pandas>=2.2.0
-
-# Machine Learning and AI libraries (optional - commented out to avoid build issues)
-# torch>=1.12.0,<4.0  # Uncomment when needed
-# torchvision>=0.13.0  # Uncomment when needed
-# sentence-transformers>=2.0.0  # Uncomment when needed
-
-# File system spec
-fsspec>=2021.06.0,<2025.0
-
-# Testing dependencies
+pydantic_core==2.33.2
+pydub==0.25.1
+pymilvus==2.5.12
+pyparsing==3.2.3
 pytest==7.4.3
-pytest-asyncio>=0.21.0
-pytest-mock>=3.10.0
-coverage>=7.0.0
+pytest-asyncio==0.23.8
 pytest-cov==4.1.0
-
-# Document processing libraries (optional - commented out to avoid build issues)
-# PyPDF2>=3.0.0  # Uncomment when needed
-# python-docx>=0.8.11  # Uncomment when needed
-# langchain>=0.1.0  # Uncomment when needed
-# langchain-community>=0.0.10  # Uncomment when needed
-# unstructured>=0.10.0  # Uncomment when needed
-
-# Google API libraries (optional - commented out to avoid build issues)
-# google-generativeai>=0.3.0  # Uncomment when needed
-# google-cloud-speech>=2.21.0  # Uncomment when needed
-
-# Audio processing (optional - commented out to avoid build issues)
-# pydub>=0.25.1  # Uncomment when needed
-
-# Additional utilities
-requests>=2.28.0
-httpx>=0.24.0
-typing-extensions>=4.12.0
-pyyaml>=6.0.0
+pytest-mock==3.14.1
+python-dateutil==2.9.0
+python-dotenv==1.1.1
+python-magic==0.4.27
+python-multipart==0.0.20
+pytz==2025.2
+PyYAML==6.0.2
+requests==2.32.4
+requests-toolbelt==1.0.0
+rsa==4.9.1
+setuptools==80.9.0
+six==1.17.0
+sniffio==1.3.1
+SQLAlchemy==2.0.41
+starlette==0.46.2
+tenacity==9.1.2
+tqdm==4.67.1
+typing-inspect==0.9.0
+typing-inspection==0.4.1
+typing_extensions==4.14.1
+tzdata==2025.2
+ujson==5.10.0
+uritemplate==4.2.0
+urllib3==2.5.0
+uvicorn==0.35.0
+yarl==1.20.1
+zstandard==0.23.0
