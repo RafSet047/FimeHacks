@@ -1,0 +1,225 @@
+{
+  "milvus_collection_config": {
+    "collection_name": "university_documents",
+    "description": "Configuration for university document categorization and tagging",
+    "version": "1.0.0"
+  },
+  "document_categories": {
+    "academic": {
+      "description": "Academic content and course materials",
+      "tags": [
+        "syllabus",
+        "course_outline",
+        "lecture_notes",
+        "lecture_slides",
+        "presentation",
+        "curriculum",
+        "reading_list",
+        "textbook",
+        "book",
+        "article",
+        "research_paper",
+        "case_study",
+        "lab_manual",
+        "tutorial",
+        "workshop_materials"
+      ]
+    },
+    "assessment": {
+      "description": "Student evaluation and grading materials",
+      "tags": [
+        "exam",
+        "midterm",
+        "final_exam",
+        "quiz",
+        "test",
+        "assignment",
+        "homework",
+        "project",
+        "thesis",
+        "dissertation",
+        "grades",
+        "transcript",
+        "report_card",
+        "rubric",
+        "feedback",
+        "peer_review"
+      ]
+    },
+    "administrative": {
+      "description": "Official university documents and administrative materials",
+      "tags": [
+        "schedule",
+        "timetable",
+        "calendar",
+        "official_document",
+        "policy",
+        "regulation",
+        "handbook",
+        "catalog",
+        "registration",
+        "enrollment",
+        "form",
+        "application",
+        "certificate",
+        "degree",
+        "diploma",
+        "transcript_request",
+        "academic_record"
+      ]
+    },
+    "student_engagement": {
+      "description": "Student participation and engagement activities",
+      "tags": [
+        "attendance",
+        "participation",
+        "survey",
+        "poll",
+        "feedback_form",
+        "evaluation",
+        "questionnaire",
+        "student_voice",
+        "meeting_minutes",
+        "discussion_board",
+        "forum_post",
+        "group_work",
+        "collaboration"
+      ]
+    },
+    "research": {
+      "description": "Research-related documents and materials",
+      "tags": [
+        "research_proposal",
+        "literature_review",
+        "methodology",
+        "data_analysis",
+        "results",
+        "publication",
+        "conference_paper",
+        "abstract",
+        "poster",
+        "grant_proposal",
+        "ethics_approval",
+        "research_data",
+        "bibliography"
+      ]
+    },
+    "events": {
+      "description": "University events and activities",
+      "tags": [
+        "seminar",
+        "workshop",
+        "conference",
+        "symposium",
+        "guest_lecture",
+        "meeting",
+        "committee_meeting",
+        "faculty_meeting",
+        "student_meeting",
+        "orientation",
+        "graduation",
+        "convocation",
+        "event_notice",
+        "announcement"
+      ]
+    },
+    "resources": {
+      "description": "Educational resources and support materials",
+      "tags": [
+        "library_resource",
+        "database_access",
+        "software_guide",
+        "tutorial_video",
+        "help_document",
+        "faq",
+        "support_material",
+        "reference_guide",
+        "manual",
+        "template",
+        "example",
+        "sample_work",
+        "best_practices"
+      ]
+    },
+    "communication": {
+      "description": "Communication and correspondence documents",
+      "tags": [
+        "email",
+        "newsletter",
+        "bulletin",
+        "notice",
+        "memo",
+        "circular",
+        "announcement",
+        "news",
+        "update",
+        "reminder",
+        "invitation",
+        "correspondence",
+        "notification"
+      ]
+    }
+  },
+  "metadata_fields": {
+    "required": [
+      "document_type",
+      "category",
+      "tags",
+      "created_date",
+      "semester",
+      "academic_year"
+    ],
+    "optional": [
+      "course_code",
+      "instructor",
+      "department",
+      "faculty",
+      "student_id",
+      "grade_level",
+      "subject",
+      "language",
+      "file_format",
+      "last_modified",
+      "access_level",
+      "confidentiality"
+    ]
+  },
+  "search_filters": {
+    "time_based": [
+      "current_semester",
+      "previous_semester",
+      "academic_year",
+      "date_range"
+    ],
+    "academic_structure": [
+      "department",
+      "faculty",
+      "course",
+      "program",
+      "degree_level"
+    ],
+    "document_properties": [
+      "file_type",
+      "language",
+      "access_level",
+      "document_status"
+    ]
+  },
+  "embedding_strategies": {
+    "text_documents": {
+      "chunk_size": 500,
+      "overlap": 50,
+      "embedding_model": "text-embedding-3-small"
+    },
+    "structured_data": {
+      "chunk_size": 1000,
+      "overlap": 100,
+      "embedding_model": "text-embedding-3-small"
+    },
+    "presentation_slides": {
+      "chunk_size": 300,
+      "overlap": 30,
+      "embedding_model": "text-embedding-3-small"
+    }
+  }
+} 
