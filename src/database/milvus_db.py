@@ -561,7 +561,7 @@ class MilvusVectorDatabase:
                 
                 document = {
                     "id": result.get("id"),
-                    "content": metadata.get("content", ""),
+                    "content": metadata.get("chunk_text", ""),  # Use chunk_text instead of content
                     "tags": metadata.get("tags", []),
                     "content_type": result.get("content_type"),
                     "department": result.get("department"),

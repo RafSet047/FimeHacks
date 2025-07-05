@@ -49,6 +49,14 @@ class MetadataAdapter:
                 # Chunk information
                 "chunk_info": chunk_info or {},
                 
+                # PRESERVE CHUNK TEXT - this is the critical field for content retrieval
+                "chunk_text": simple_metadata.get("chunk_text", ""),
+                "chunk_text_preview": simple_metadata.get("chunk_text_preview", ""),
+                "chunk_index": simple_metadata.get("chunk_index", 0),
+                "total_chunks": simple_metadata.get("total_chunks", 1),
+                "chunk_length": simple_metadata.get("chunk_length", 0),
+                "chunk_word_count": simple_metadata.get("chunk_word_count", 0),
+                
                 # Organizational metadata
                 "organizational": {
                     "role": simple_metadata.get("employee_role", "user"),
@@ -105,6 +113,7 @@ class MetadataAdapter:
                 **base_metadata,
                 "chunk_index": chunk_index,
                 "total_chunks": total_chunks,
+                "chunk_text": chunk_text,  # Store full chunk text
                 "chunk_text_preview": chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text,
                 "chunk_length": len(chunk_text),
                 "chunk_word_count": len(chunk_text.split()),

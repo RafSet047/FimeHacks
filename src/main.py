@@ -308,7 +308,8 @@ async def process_document(
         logger.info("Starting StoreAgent content analysis")
 
         # Use first 2000 characters for analysis to manage LLM context
-        analysis_text = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
+        #analysis_text = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
+        analysis_text = extracted_text
         logger.info(f"Using {len(analysis_text)} characters for AI analysis")
 
         try:
@@ -345,8 +346,8 @@ async def process_document(
         # Chunk text
         logger.info("=== CHUNKING TEXT ===")
         config = ChunkingConfig(
-            chunk_size=500,
-            chunk_overlap=50,
+            chunk_size=512,
+            chunk_overlap=128,
             add_start_index=True
         )
 
