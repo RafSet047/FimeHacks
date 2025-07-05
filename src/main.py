@@ -2,6 +2,16 @@
 
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from src.config.settings import settings
+from src.database.connection import init_db
+from src.utils.logging import setup_logging
+from src.api.file_upload import router as file_upload_router
+from src.api.chat import router as chat_router
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -34,7 +44,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,6 +51,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Mount React build assets
+app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
+
+# Include routers
+app.include_router(file_upload_router)
+app.include_router(chat_router)
 
 # Global services
 google_service = None
@@ -97,6 +112,13 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
         raise
+    print('🌿 Starting AI Chat - Green Theme with Glassmorphism')
+    print('🎨 Features: Modern green design (#5f9c4a), glass triangles, clean UI')
+    print('💎 Transparent geometric patterns with glass effects')
+    print('📱 Access at: http://localhost:8080')
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    init_db()
+    logger.info("Application startup complete")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -107,6 +129,15 @@ async def shutdown_event():
     logger.info("Services shutdown complete")
 
 @app.get("/health", response_model=HealthResponse)
+async def health_check():
+    return {
+        "message": f"Welcome to {settings.app_name} API",
+        "version": settings.app_version,
+        "status": "running"
+    }
+
+
+@app.get("/health")
 async def health_check():
     """Health check endpoint"""
     try:
@@ -313,5 +344,25 @@ def _get_mime_type(filename: str) -> str:
     
     return mime_types.get(extension, 'text/plain')
 
+@app.get("/", response_class=HTMLResponse)
+async def serve_react_app():
+    """Serve the React chat application"""
+    try:
+        with open("frontend/dist/index.html", "r") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>React app not built yet. Run: cd frontend && npm run build</h1>",
+            status_code=404
+        )
+
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000) 
+    import uvicorn
+    uvicorn.run(
+        "src.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.debug,
+        log_level=settings.log_level.lower()
+    )
