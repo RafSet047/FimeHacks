@@ -55,13 +55,9 @@ read -p "Enter your choice (1-3): " choice
 case $choice in
     1)
         echo "🚀 Starting production mode on http://localhost:8080"
-        python -c "
-import uvicorn
-from src.main import app
-print('📱 Access the chat interface at: http://localhost:8080')
-print('🔗 API documentation at: http://localhost:8080/docs')
-uvicorn.run(app, host='0.0.0.0', port=8080, reload=False)
-"
+        echo "📱 Access the chat interface at: http://localhost:8080"
+        echo "🔗 API documentation at: http://localhost:8080/docs"
+        PYTHONPATH=. python -m src.main
         ;;
     2)
         echo "🔧 Starting development mode..."
@@ -69,11 +65,7 @@ uvicorn.run(app, host='0.0.0.0', port=8080, reload=False)
         echo "🔗 Backend API: http://localhost:8080"
         echo ""
         echo "Starting FastAPI backend..."
-        python -c "
-import uvicorn
-from src.main import app
-uvicorn.run(app, host='0.0.0.0', port=8080, reload=True)
-" &
+        PYTHONPATH=. python -m src.main &
 
         echo "Starting React development server..."
         cd frontend && npm run dev

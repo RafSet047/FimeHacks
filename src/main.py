@@ -90,25 +90,25 @@ class HealthResponse(BaseModel):
 async def startup_event():
     """Initialize services on startup"""
     global google_service, milvus_db, text_chunker
-    
+
     try:
         # Initialize services
         google_service = get_google_service()
         milvus_db = MilvusVectorDatabase()
         text_chunker = TextChunker()
-        
+
         # Connect to Milvus
         if not milvus_db.connect():
             logger.error("Failed to connect to Milvus database")
             raise RuntimeError("Milvus connection failed")
-        
+
         # Create collections
         if not milvus_db.create_all_collections():
             logger.error("Failed to create collections")
             raise RuntimeError("Collection creation failed")
-        
+
         logger.info("All services initialized successfully")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
         raise
@@ -130,15 +130,6 @@ async def shutdown_event():
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    return {
-        "message": f"Welcome to {settings.app_name} API",
-        "version": settings.app_version,
-        "status": "running"
-    }
-
-
-@app.get("/health")
-async def health_check():
     """Health check endpoint"""
     try:
         # Check Google service
@@ -146,15 +137,15 @@ async def health_check():
         if google_service:
             status_info = google_service.get_service_status()
             google_status = status_info.get("genai_configured", False)
-        
+
         # Check Milvus
         milvus_status = False
         if milvus_db:
             milvus_status = milvus_db.health_check()
-        
+
         # Overall status
         overall_status = "healthy" if (google_status and milvus_status) else "unhealthy"
-        
+
         return HealthResponse(
             status=overall_status,
             services={
@@ -164,7 +155,7 @@ async def health_check():
             },
             message="Service health check completed"
         )
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(
@@ -179,62 +170,62 @@ async def process_document(
 ):
     """Process document: upload → extract → chunk → embed → store"""
     temp_file_path = None
-    
+
     try:
         # Parse metadata
         try:
             metadata_dict = json.loads(metadata)
         except json.JSONDecodeError:
             metadata_dict = {"department": "demo", "description": "uploaded document"}
-        
+
         # Save uploaded file temporarily
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix)
         temp_file_path = temp_file.name
-        
+
         content = await file.read()
         with open(temp_file_path, 'wb') as f:
             f.write(content)
-        
+
         # Extract text
         mime_type = _get_mime_type(file.filename)
         extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
-        
+
         if not extracted_text.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No text could be extracted from the file"
             )
-        
+
         # Chunk text
         config = ChunkingConfig(
             chunk_size=500,
             chunk_overlap=50,
             add_start_index=True
         )
-        
+
         chunks = text_chunker.chunk_text(
             text=extracted_text,
             strategy=ChunkingStrategy.RECURSIVE,
             config=config,
             metadata={"source": file.filename}
         )
-        
+
         # Process chunks: embed and store
         document_ids = []
         embeddings_generated = 0
-        
+
         for i, chunk in enumerate(chunks):
             try:
                 # Generate embeddings
                 chunk_text = chunk.page_content
                 embeddings = google_service.generate_text_embeddings(chunk_text)
-                
+
                 if not embeddings:
                     logger.warning(f"Failed to generate embeddings for chunk {i}")
                     continue
-                
+
                 embeddings_generated += 1
-                
+
                 # Store in Milvus (simplified)
                 simple_metadata = {
                     "chunk_index": i,
@@ -244,7 +235,7 @@ async def process_document(
                     "description": metadata_dict.get("description", ""),
                     "chunk_text": chunk_text[:200]  # Preview
                 }
-                
+
                 doc_id = milvus_db.insert_data(
                     collection_name="text_embeddings",
                     vector=embeddings[0],
@@ -254,15 +245,15 @@ async def process_document(
                     file_size=len(chunk_text.encode()),
                     content_hash=f"chunk_{i}_{file.filename}"
                 )
-                
+
                 if doc_id:
                     document_ids.append(doc_id)
                     logger.info(f"Stored chunk {i+1}/{len(chunks)}: {doc_id}")
-                
+
             except Exception as e:
                 logger.error(f"Error processing chunk {i}: {e}")
                 continue
-        
+
         # Return results
         return ProcessResponse(
             success=len(document_ids) > 0,
@@ -271,14 +262,14 @@ async def process_document(
             chunks_processed=len(chunks),
             embeddings_generated=embeddings_generated
         )
-        
+
     except Exception as e:
         logger.error(f"Document processing failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Document processing failed: {str(e)}"
         )
-    
+
     finally:
         # Cleanup temp file
         if temp_file_path and os.path.exists(temp_file_path):
@@ -290,20 +281,20 @@ async def search_documents(request: SearchRequest):
     try:
         # Generate query embeddings
         query_embeddings = google_service.generate_text_embeddings(request.query)
-        
+
         if not query_embeddings:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to generate query embeddings"
             )
-        
+
         # Search in Milvus
         results = milvus_db.vector_search(
             collection_name=request.collection_name,
             query_vector=query_embeddings[0],
             limit=request.limit
         )
-        
+
         # Simplify results for response
         simplified_results = []
         for result in results:
@@ -315,13 +306,13 @@ async def search_documents(request: SearchRequest):
                 "metadata": result.get("metadata", {})
             }
             simplified_results.append(simplified_result)
-        
+
         return SearchResponse(
             results=simplified_results,
             query=request.query,
             total_results=len(simplified_results)
         )
-        
+
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(
@@ -332,7 +323,7 @@ async def search_documents(request: SearchRequest):
 def _get_mime_type(filename: str) -> str:
     """Get MIME type from filename"""
     extension = Path(filename).suffix.lower()
-    
+
     mime_types = {
         '.txt': 'text/plain',
         '.md': 'text/markdown',
@@ -341,7 +332,7 @@ def _get_mime_type(filename: str) -> str:
         '.pdf': 'application/pdf',
         '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     }
-    
+
     return mime_types.get(extension, 'text/plain')
 
 @app.get("/", response_class=HTMLResponse)
@@ -362,7 +353,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "src.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8080,
         reload=settings.debug,
         log_level=settings.log_level.lower()
     )

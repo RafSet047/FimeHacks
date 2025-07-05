@@ -352,7 +352,63 @@
     mask-composite: exclude;
   }
 
-  /* Animations removed for no-animation version */
+  /* Custom dropdown animations */
+  .animate-in {
+    animation: slideIn 0.2s ease-out;
+  }
+
+  .slide-in-from-top-2 {
+    animation: slideInFromTop 0.2s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes slideInFromTop {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Enhanced notification badge animation */
+  .notification-badge {
+    position: relative;
+    overflow: visible;
+  }
+
+  .notification-badge::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #ef4444, #dc2626);
+    z-index: -1;
+    animation: notificationPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes notificationPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.7;
+    }
+  }
 }
 
 /* Print Styles */
@@ -371,4 +427,12 @@
   .safe-area-top {
     padding-top: max(env(safe-area-inset-top), 0.5rem);
   }
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

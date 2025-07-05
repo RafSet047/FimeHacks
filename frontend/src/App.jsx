@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { Bot, MoreHorizontal, Send, Settings, Sparkles, User } from 'lucide-react'
+import { AlertCircle, Bell, Bot, CheckCircle, Info, LogOut, Send, Settings, Sparkles, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const ChatApp = () => {
@@ -13,8 +13,45 @@ const ChatApp = () => {
   ])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "New Feature Available",
+      message: "Check out the new document processing capabilities",
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      read: false,
+      type: "feature"
+    },
+    {
+      id: 2,
+      title: "Processing Complete",
+      message: "Your document 'research_paper.pdf' has been successfully processed",
+      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      read: false,
+      type: "success"
+    },
+    {
+      id: 3,
+      title: "System Update",
+      message: "AI Assistant has been updated with improved response accuracy",
+      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      read: true,
+      type: "system"
+    },
+    {
+      id: 4,
+      title: "Upload Error",
+      message: "Failed to upload 'large_file.pdf'. File size exceeds limit",
+      timestamp: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
+      read: false,
+      type: "error"
+    }
+  ])
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const dropdownRef = useRef(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -36,6 +73,21 @@ const ChatApp = () => {
   useEffect(() => {
     adjustTextareaHeight()
   }, [inputValue])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false)
+        setShowNotifications(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
@@ -100,6 +152,57 @@ const ChatApp = () => {
     sendMessage()
   }
 
+  // Notification management functions
+  const unreadNotifications = notifications.filter(n => !n.read)
+  const unreadCount = unreadNotifications.length
+
+  const markNotificationAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
+    )
+  }
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev =>
+      prev.map(notification => ({ ...notification, read: true }))
+    )
+  }
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'success': return CheckCircle
+      case 'error': return AlertCircle
+      case 'feature': return Sparkles
+      case 'system': return Info
+      default: return Bell
+    }
+  }
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'success': return 'text-green-600'
+      case 'error': return 'text-red-600'
+      case 'feature': return 'text-purple-600'
+      case 'system': return 'text-blue-600'
+      default: return 'text-gray-600'
+    }
+  }
+
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date()
+    const diff = now - timestamp
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (days > 0) return `${days}d ago`
+    if (hours > 0) return `${hours}h ago`
+    if (minutes > 0) return `${minutes}m ago`
+    return 'Just now'
+  }
+
   return (
     <div className="h-screen w-full relative overflow-hidden">
       {/* Animated Background */}
@@ -158,13 +261,189 @@ const ChatApp = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <button className="w-9 h-9 rounded-lg glass-button-secondary hover:glass-button-secondary-hover flex items-center justify-center transition-all duration-300 group">
-                <Settings className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                        <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDropdownOpen(!isDropdownOpen);
+                }}
+                className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 via-sage-500 to-forest-600 flex items-center justify-center shadow-glow-primary hover:shadow-glow-primary-soft transition-all duration-300 group"
+              >
+                <User className="w-5 h-5 text-white drop-shadow-sm" />
+
+                {/* Modern animated notification badge */}
+                <div className="absolute -top-1 -right-1">
+                  <div className="relative">
+                    {/* Pulsing outer ring */}
+                    <div className="absolute inset-0 w-3 h-3 bg-red-400 rounded-full animate-ping opacity-75"></div>
+                    {/* Main badge */}
+                    <div className="relative w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+                      <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
+                    </div>
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 w-3 h-3 bg-gradient-to-br from-white/40 to-transparent rounded-full opacity-60"></div>
+                  </div>
+                </div>
               </button>
-              <button className="w-9 h-9 rounded-lg glass-button-secondary hover:glass-button-secondary-hover flex items-center justify-center transition-all duration-300 group">
-                <MoreHorizontal className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors" />
-              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className={clsx(
+                  "absolute right-0 top-full mt-2 glass-morphism-container rounded-xl shadow-glass border border-white/20 backdrop-blur-2xl z-[100] animate-in slide-in-from-top-2 duration-200",
+                  showNotifications ? "w-80" : "w-48"
+                )}>
+                  {!showNotifications ? (
+                    // Main menu
+                    <div className="p-2 space-y-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDropdownOpen(false);
+                          // Add your settings logic here
+                        }}
+                        className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-white/30 rounded-lg transition-all duration-200 group"
+                      >
+                        <Settings className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                        <span className="font-medium">Account Settings</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNotifications(true);
+                        }}
+                        className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-gray-700 hover:bg-white/30 rounded-lg transition-all duration-200 group"
+                      >
+                        <div className="relative">
+                          <Bell className="w-4 h-4 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                          {unreadCount > 0 && (
+                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                              {unreadCount > 9 ? '9+' : unreadCount}
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-medium">Notifications</span>
+                      </button>
+                      <div className="border-t border-white/20 my-1"></div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDropdownOpen(false);
+                          // Add your logout logic here
+                        }}
+                        className="w-full flex items-center space-x-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50/30 rounded-lg transition-all duration-200 group"
+                      >
+                        <LogOut className="w-4 h-4 text-red-500 group-hover:text-red-700 transition-colors" />
+                        <span className="font-medium">Logout</span>
+                      </button>
+                    </div>
+                  ) : (
+                    // Notifications panel
+                    <div className="p-3">
+                      {/* Notifications header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowNotifications(false);
+                            }}
+                            className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                          >
+                            <X className="w-4 h-4 text-gray-600" />
+                          </button>
+                          <h3 className="font-semibold text-gray-800">Notifications</h3>
+                        </div>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markAllNotificationsAsRead();
+                            }}
+                            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Notifications list */}
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="text-center py-4 text-gray-500">
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No notifications</p>
+                          </div>
+                        ) : (
+                          notifications.map((notification) => {
+                            const IconComponent = getNotificationIcon(notification.type);
+                            return (
+                              <div
+                                key={notification.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markNotificationAsRead(notification.id);
+                                }}
+                                className={clsx(
+                                  "p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/20 border-l-4",
+                                  notification.read
+                                    ? "bg-white/5 border-l-gray-300"
+                                    : "bg-white/10 border-l-primary-500"
+                                )}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <IconComponent className={clsx(
+                                    "w-5 h-5 mt-0.5 flex-shrink-0",
+                                    getNotificationColor(notification.type)
+                                  )} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className={clsx(
+                                        "text-sm font-medium truncate",
+                                        notification.read ? "text-gray-600" : "text-gray-800"
+                                      )}>
+                                        {notification.title}
+                                      </h4>
+                                      {!notification.read && (
+                                        <div className="w-2 h-2 bg-primary-500 rounded-full flex-shrink-0 ml-2"></div>
+                                      )}
+                                    </div>
+                                    <p className={clsx(
+                                      "text-xs mt-1 line-clamp-2",
+                                      notification.read ? "text-gray-400" : "text-gray-600"
+                                    )}>
+                                      {notification.message}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      {formatTimeAgo(notification.timestamp)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* View all notifications link */}
+                      {notifications.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/20">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsDropdownOpen(false);
+                              setShowNotifications(false);
+                              // Add logic to open full notifications page
+                            }}
+                            className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          >
+                            View all notifications
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
