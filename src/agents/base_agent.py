@@ -8,9 +8,6 @@ from langchain.tools import BaseTool
 #from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
 
-from src.database.milvus_db import MilvusVectorDatabase
-from src.database.config import CollectionConfig
-from src.services.file_processor import ProcessingJob
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -30,17 +27,6 @@ class BaseAgent(ABC):
             description: Agent description
             config: Configuration dictionary
         """
-        # add access to MilvusVectorDatabase
-        self.milvus_db_manager = MilvusVectorDatabase()
-        self.milvus_db_manager.connect()
-
-        #TODO: Update configuration
-        # Use the default documents collection configuration
-        from src.database.config import get_default_collections_config
-        collections_config = get_default_collections_config()
-        self.milvus_db_manager.create_collection("documents")
-
-
         self.name = name
         self.description = description
         self.config = config or {}
@@ -109,7 +95,6 @@ class BaseAgent(ABC):
 
     def _initialize_llm(self) -> genai.GenerativeModel:
         """Initialize LLM with Google Gemini"""
-        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel(settings.llm_model)
-
         return model

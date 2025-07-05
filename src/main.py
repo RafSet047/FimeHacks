@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import tempfile
 import json
+import time
 
 # Add the src directory to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -31,6 +32,10 @@ from src.database.milvus_db import MilvusVectorDatabase
 from src.services.document_extractor import document_extractor
 from src.services.text_chunking import TextChunker, ChunkingStrategy, ChunkingConfig
 from src.utils.logging import setup_logging
+
+# Import StoreAgent and MetadataAdapter
+from src.agents.store_agent import StoreAgent
+from src.services.metadata_adapter import MetadataAdapter
 
 # Setup logging
 setup_logging()
@@ -63,6 +68,7 @@ app.include_router(file_upload_router)
 google_service = None
 milvus_db = None
 text_chunker = None
+store_agent = None
 
 # Request/Response models
 class SearchRequest(BaseModel):
@@ -81,6 +87,8 @@ class ProcessResponse(BaseModel):
     document_ids: List[str]
     chunks_processed: int
     embeddings_generated: int
+    ai_tags: Optional[List[str]] = None
+    analysis_time: Optional[float] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -98,7 +106,7 @@ class ChatResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global google_service, milvus_db, text_chunker
+    global google_service, milvus_db, text_chunker, store_agent
 
     try:
         # Initialize services
@@ -116,7 +124,14 @@ async def startup_event():
             logger.error("Failed to create collections")
             raise RuntimeError("Collection creation failed")
 
+        # Initialize StoreAgent
+        store_agent = StoreAgent(
+            name="ContentAnalyzer",
+            description="Analyzes document content and generates intelligent tags"
+        )
+
         logger.info("All services initialized successfully")
+        logger.info(f"StoreAgent initialized with {len(store_agent.available_tags)} available tags")
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -152,15 +167,22 @@ async def health_check():
         if milvus_db:
             milvus_status = milvus_db.health_check()
 
+        # Check StoreAgent
+        store_agent_status = False
+        if store_agent:
+            agent_status = store_agent.get_status()
+            store_agent_status = agent_status.get("is_active", False)
+
         # Overall status
-        overall_status = "healthy" if (google_status and milvus_status) else "unhealthy"
+        overall_status = "healthy" if (google_status and milvus_status and store_agent_status) else "unhealthy"
 
         return HealthResponse(
             status=overall_status,
             services={
                 "google_api": google_status,
                 "milvus": milvus_status,
-                "text_chunker": text_chunker is not None
+                "text_chunker": text_chunker is not None,
+                "store_agent": store_agent_status
             },
             message="Service health check completed"
         )
@@ -177,7 +199,7 @@ async def process_document(
     file: UploadFile = File(...),
     metadata: str = Form(default='{"department": "demo", "description": "uploaded document"}')
 ):
-    """Process document: upload → extract → chunk → embed → store"""
+    """Process document: upload → extract → analyze → chunk → embed → store"""
     temp_file_path = None
     logger.info(f"Processing document upload: {file.filename}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
 
@@ -212,6 +234,30 @@ async def process_document(
 
         logger.info(f"Extracted {len(extracted_text)} characters from {file.filename}")
 
+        # NEW: StoreAgent Content Analysis
+        analysis_start_time = time.time()
+        logger.info("Analyzing document content with StoreAgent")
+        
+        # Use first 2000 characters for analysis to manage LLM context
+        analysis_text = extracted_text[:2000] if len(extracted_text) > 2000 else extracted_text
+        ai_tags = store_agent.analyze_content(analysis_text)
+        
+        analysis_time = time.time() - analysis_start_time
+        logger.info(f"Content analysis completed in {analysis_time:.2f}s, generated tags: {ai_tags}")
+
+        # Prepare base metadata for all chunks
+        base_metadata = {
+            "filename": file.filename,
+            "department": metadata_dict.get("department", "demo"),
+            "description": metadata_dict.get("description", ""),
+            "tags": metadata_dict.get("tags", []),
+            "project": metadata_dict.get("project", ""),
+            "content_length": len(extracted_text),
+            "mime_type": mime_type,
+            "analysis_time": analysis_time,
+            "upload_timestamp": time.time()
+        }
+
         # Chunk text
         config = ChunkingConfig(
             chunk_size=500,
@@ -228,7 +274,7 @@ async def process_document(
         )
         logger.info(f"Created {len(chunks)} chunks from {file.filename}")
 
-        # Process chunks: embed and store
+        # Process chunks: embed and store with AI-enhanced metadata
         document_ids = []
         embeddings_generated = 0
 
@@ -244,42 +290,55 @@ async def process_document(
 
                 embeddings_generated += 1
 
-                # Store in Milvus (simplified)
-                simple_metadata = {
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                    "filename": file.filename,
-                    "department": metadata_dict.get("department", "demo"),
-                    "description": metadata_dict.get("description", ""),
-                    "chunk_text": chunk_text[:200]  # Preview
-                }
+                # Create enhanced metadata using MetadataAdapter
+                chunk_metadata = MetadataAdapter.prepare_chunk_metadata(
+                    base_metadata=base_metadata,
+                    chunk_text=chunk_text,
+                    chunk_index=i,
+                    total_chunks=len(chunks)
+                )
 
+                # Enhance metadata with AI tags
+                enhanced_metadata = MetadataAdapter.simple_to_enhanced(
+                    simple_metadata=chunk_metadata,
+                    ai_tags=ai_tags,
+                    chunk_info={
+                        "chunk_index": i,
+                        "total_chunks": len(chunks),
+                        "start_index": chunk.metadata.get("start_index", 0),
+                        "end_index": chunk.metadata.get("end_index", 0)
+                    }
+                )
+
+                # Store in Milvus with enhanced metadata
                 doc_id = milvus_db.insert_data(
                     collection_name="text_embeddings",
                     vector=embeddings[0],
-                    metadata=simple_metadata,
+                    metadata=enhanced_metadata,
                     content_type="document",
                     department=metadata_dict.get("department", "demo"),
                     file_size=len(chunk_text.encode()),
-                    content_hash=f"chunk_{i}_{file.filename}"
+                    content_hash=f"chunk_{i}_{file.filename}_{int(time.time())}"
                 )
 
                 if doc_id:
                     document_ids.append(doc_id)
-                    logger.info(f"Stored chunk {i+1}/{len(chunks)}: {doc_id}")
+                    logger.info(f"Stored chunk {i+1}/{len(chunks)} with AI tags: {doc_id}")
 
             except Exception as e:
                 logger.error(f"Error processing chunk {i}: {e}")
                 continue
 
-        # Return results
+        # Return results with AI analysis information
         logger.info(f"Document processing complete: {len(chunks)} chunks processed, {len(document_ids)} documents stored, {embeddings_generated} embeddings generated")
         return ProcessResponse(
             success=len(document_ids) > 0,
-            message=f"Processed {len(chunks)} chunks, stored {len(document_ids)} documents",
+            message=f"Processed {len(chunks)} chunks with AI analysis, stored {len(document_ids)} documents",
             document_ids=document_ids,
             chunks_processed=len(chunks),
-            embeddings_generated=embeddings_generated
+            embeddings_generated=embeddings_generated,
+            ai_tags=ai_tags,
+            analysis_time=analysis_time
         )
 
     except Exception as e:
