@@ -133,8 +133,19 @@ class MilvusVectorDatabase:
     def create_collection(self, collection_name: str) -> bool:
         """Create a collection based on configuration"""
         if collection_name not in self.config.collections:
-            logger.error(f"Collection {collection_name} not found in configuration")
-            return False
+            logger.info(f"Collection {collection_name} not found in configuration, creating with default text_embeddings config")
+            # Use text_embeddings as template for new collections
+            default_config = self.config.collections["text_embeddings"]
+            self.config.collections[collection_name] = CollectionConfig(
+                name=collection_name,
+                description=f"Dynamically created collection: {collection_name}",
+                vector_dim=default_config.vector_dim,
+                content_types=default_config.content_types,
+                organization_types=default_config.organization_types,
+                agentic_description=default_config.agentic_description,
+                enabled=True,
+                index_config=default_config.index_config
+            )
             
         collection_config = self.config.collections[collection_name]
         

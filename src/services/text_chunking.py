@@ -37,13 +37,13 @@ class ChunkingStrategy(str, Enum):
 @dataclass
 class ChunkingConfig:
     """Configuration for text chunking"""
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
+    chunk_size: int = 500
+    chunk_overlap: int = 50
     length_function: callable = len
     separators: List[str] = None
     keep_separator: bool = True
     strip_whitespace: bool = True
-    add_start_index: bool = False
+    add_start_index: bool = True
     
     # Markdown/HTML specific settings
     headers_to_split_on: List[Dict[str, str]] = None
@@ -53,7 +53,7 @@ class ChunkingConfig:
     
     def __post_init__(self):
         if self.separators is None:
-            self.separators = ["\n\n", "\n", " ", ""]
+            self.separators = ["\n\n", "\n", ". ", " ", ""]
         if self.headers_to_split_on is None:
             self.headers_to_split_on = [
                 {"level": 1, "name": "Header 1"},
@@ -142,22 +142,14 @@ class TextChunker:
             return self._get_basic_splitter(config)
             
         try:
-            if strategy == ChunkingStrategy.RECURSIVE:
+            # Force RecursiveCharacterTextSplitter as default for all strategies except specialized ones
+            if strategy == ChunkingStrategy.RECURSIVE or strategy == ChunkingStrategy.CHARACTER:
                 return RecursiveCharacterTextSplitter(
                     chunk_size=config.chunk_size,
                     chunk_overlap=config.chunk_overlap,
                     length_function=config.length_function,
                     separators=config.separators,
                     keep_separator=config.keep_separator,
-                    strip_whitespace=config.strip_whitespace
-                )
-                
-            elif strategy == ChunkingStrategy.CHARACTER:
-                return CharacterTextSplitter(
-                    chunk_size=config.chunk_size,
-                    chunk_overlap=config.chunk_overlap,
-                    length_function=config.length_function,
-                    separator=config.separators[0] if config.separators else "\n\n",
                     strip_whitespace=config.strip_whitespace
                 )
                 
@@ -215,13 +207,18 @@ class TextChunker:
             text_length = len(text)
             
             while start < text_length:
-                # Calculate chunk end with overlap
+                # Calculate chunk end
                 chunk_end = min(start + config.chunk_size, text_length)
                 
-                # Extract chunk
-                chunk = text[start:chunk_end]
+                # Extract chunk and strip whitespace
+                chunk = text[start:chunk_end].strip()
                 
-                # Add chunk as Document
+                # Skip empty chunks
+                if not chunk:
+                    start = chunk_end
+                    continue
+                
+                # Add chunk as Document with proper metadata
                 chunk_metadata = {
                     **metadata,
                     "start_index": start,
@@ -230,10 +227,9 @@ class TextChunker:
                 chunks.append(Document(page_content=chunk, metadata=chunk_metadata))
                 
                 # Move start position for next chunk, considering overlap
-                start = chunk_end - config.chunk_overlap
-                
-                # Ensure we make progress
-                if start <= 0:
+                if config.chunk_overlap > 0 and chunk_end < text_length:
+                    start = max(chunk_end - config.chunk_overlap, start + 1)
+                else:
                     start = chunk_end
             
             return chunks
@@ -241,7 +237,7 @@ class TextChunker:
         except Exception as e:
             logger.error(f"Error in basic character chunking: {e}")
             # Return single chunk as last resort
-            return [Document(page_content=text, metadata=metadata)]
+            return [Document(page_content=text.strip(), metadata=metadata)]
 
     def merge_chunks(
         self,
