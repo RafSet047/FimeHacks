@@ -10,5 +10,9 @@ logs
 venv
 .vscode
 .DS_Store
-.gitignore
-.gitignore
+*wav
+*mp3
+*mp4
+*.lock
+*.txt
+
