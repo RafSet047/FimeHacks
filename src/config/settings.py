@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = Field(default=None, alias="GOOGLE_API_KEY")
     google_generative_ai_api_key: Optional[str] = Field(default=None, alias="GOOGLE_GENERATIVE_AI_API_KEY")
     google_application_credentials: Optional[str] = Field(default=None, alias="GOOGLE_APPLICATION_CREDENTIALS")
+    gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
 
     # LLM settings
     llm_model: str = "gemini-2.5-flash"
