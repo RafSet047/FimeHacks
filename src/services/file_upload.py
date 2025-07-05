@@ -12,7 +12,7 @@ import logging
 from src.config.settings import settings
 from src.database.crud import file_crud
 from src.utils.logging import setup_logging
-from src.services.file_processor import content_router
+# from src.services.file_processor import content_router  # Removed: main.py handles all processing
 from src.models.metadata import FileMetadata, ProcessingMetadata
 
 setup_logging()
@@ -387,38 +387,12 @@ class FileUploadService:
             # Save to database
             db_file = file_crud.create_file(db, file_data)
             
-            # Process file immediately (simplified for hackathon)
-            try:
-                processing_job = await content_router.route_file_for_processing(
-                    file_id=file_id,
-                    file_path=storage_result["file_path"],
-                    filename=file.filename,
-                    mime_type=validation_result["type_info"]["mime_type"],
-                    file_metadata=file_metadata,
-                    db=db
-                )
-                
-                # Process immediately
-                completed_job = await content_router.process_job(processing_job, db)
-                
-                processing_info = {
-                    "processing_completed": completed_job.status.value == "completed",
-                    "content_type": processing_job.content_type.value,
-                    "processing_time": completed_job.processing_metadata.processing_duration_seconds or 0,
-                    "error_message": completed_job.error_message
-                }
-                
-                if completed_job.status.value == "completed":
-                    logger.info(f"File {file_id} from {file_metadata.department} processed successfully as {processing_job.content_type.value}")
-                else:
-                    logger.error(f"File {file_id} processing failed: {completed_job.error_message}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to process file {file_id}: {e}")
-                processing_info = {
-                    "processing_completed": False,
-                    "processing_error": str(e)
-                }
+            # Note: File processing is now handled entirely by main.py /process endpoint
+            # This ensures correct order: extraction first, then analysis
+            processing_info = {
+                "processing_completed": True,
+                "processing_note": "File ready for processing by main.py endpoint"
+            }
             
             logger.info(f"File upload successful: {file_id}")
             

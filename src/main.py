@@ -348,10 +348,40 @@ async def process_document(
         with open(temp_file_path, 'rb') as f:
             content = f.read()
 
-        # Extract text
+        # Extract text based on file type
         mime_type = upload_result["mime_type"]
-        logger.info(f"Extracting text from {file.filename} (MIME: {mime_type})")
-        extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
+        file_type = upload_result["file_type"]
+        logger.info(f"Extracting text from {file.filename} (MIME: {mime_type}, Type: {file_type})")
+        
+        extracted_text = ""
+        
+        # Check if it's an image file - use OCR
+        if mime_type.startswith("image/"):
+            logger.info(f"Processing image file with OCR: {file.filename}")
+            try:
+                extracted_text = google_service.extract_text_from_image(temp_file_path)
+                logger.info(f"OCR extraction successful for {file.filename}")
+            except Exception as ocr_error:
+                logger.error(f"OCR extraction failed for {file.filename}: {ocr_error}")
+                extracted_text = f"Image file: {file.filename} (OCR failed: {str(ocr_error)})"
+        
+        # Check if it's an audio file - use transcription
+        elif mime_type.startswith("audio/"):
+            logger.info(f"Processing audio file with transcription: {file.filename}")
+            try:
+                transcription_result = google_service.transcribe_audio(temp_file_path)
+                extracted_text = transcription_result.get("transcript", "")
+                if not extracted_text.strip():
+                    extracted_text = f"Audio file: {file.filename} (No speech detected)"
+                logger.info(f"Audio transcription successful for {file.filename}")
+            except Exception as audio_error:
+                logger.error(f"Audio transcription failed for {file.filename}: {audio_error}")
+                extracted_text = f"Audio file: {file.filename} (Transcription failed: {str(audio_error)})"
+        
+        # For other file types, use the existing document extractor
+        else:
+            logger.info(f"Processing document file: {file.filename}")
+            extracted_text = document_extractor.extract_text(temp_file_path, mime_type)
 
         if not extracted_text.strip():
             logger.error(f"No text extracted from {file.filename} - extracted_text is empty or whitespace only")
