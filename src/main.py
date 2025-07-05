@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import json
 import time
+import hashlib
+from src.services.file_upload import file_upload_service
+from src.models.metadata import FileMetadata
+
 
 # Add the src directory to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -246,10 +250,6 @@ async def process_document(
             metadata_dict = {"department": "demo", "description": "uploaded document"}
             logger.warning(f"Using default metadata: {metadata_dict}")
 
-        # Use file upload service for file upload and storage
-        from src.services.file_upload import file_upload_service
-        from src.models.metadata import FileMetadata
-
         # Create FileMetadata object
         file_metadata = FileMetadata(
             department=metadata_dict.get("department", "demo"),
@@ -424,6 +424,11 @@ async def process_document(
                 # Store in Milvus with enhanced metadata
                 logger.info(f"Storing chunk {i+1} in Milvus database")
                 try:
+                    # Create a short, unique content hash (max 64 characters)
+                    hash_input = f"chunk_{i}_{file.filename}_{int(time.time())}"
+                    content_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:32]  # Use first 32 chars of SHA256
+                    logger.info(f"Generated content_hash: {content_hash} (length: {len(content_hash)})")
+
                     doc_id = milvus_db.insert_data(
                         collection_name="text_embeddings",
                         vector=embeddings[0],
@@ -431,7 +436,7 @@ async def process_document(
                         content_type="document",
                         department=metadata_dict.get("department", "demo"),
                         file_size=len(chunk_text.encode()),
-                        content_hash=f"chunk_{i}_{file.filename}_{int(time.time())}"
+                        content_hash=content_hash
                     )
                     logger.info(f"Milvus insert operation completed for chunk {i+1}")
                 except Exception as milvus_error:
