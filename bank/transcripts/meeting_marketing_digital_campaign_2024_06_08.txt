@@ -1,0 +1,42 @@
+Voice Transcript 8: Marketing Team - Digital Campaign Strategy
+
+"Marketing Strategy Committee meeting, June 8th, 2024, 2 PM to 4 PM. Present:
+Chief Marketing Officer Emily Watson, Digital Marketing Director Carlos Mendez,
+Product Marketing Manager Jessica Lee, Analytics Lead Ryan Foster, and Budget
+Controller Amanda Johnson. Discussion focused on Q3 digital marketing campaign
+strategy and budget allocation for our new mobile banking app launch.  Emily
+opened by presenting the campaign objectives - we need to acquire 25,000 new
+mobile banking users in Q3, increase app downloads by 40%, and achieve a 15%
+conversion rate from download to active usage. The target audience is millennials
+and Gen Z customers aged 25-40 with household income above $75,000.  Carlos
+presented the digital channel strategy - he's proposing a multi-channel approach
+with Google Ads (40% of budget), Facebook/Instagram (30%), LinkedIn (15%), and
+programmatic display (15%). The total campaign budget is $850,000 with an
+expected cost per acquisition of $34. He emphasized that video content performs
+2.3x better than static ads for our target demographic.  Jessica detailed the
+creative strategy - she's developed three campaign themes: 'Banking Made Simple,'
+'Your Money, Your Control,' and 'Smart Banking for Smart People.' A/B testing
+shows the 'Smart Banking' theme has 23% higher engagement rates. She's also
+proposing influencer partnerships with 5 fintech influencers with combined
+reach of 2.1 million followers.  Ryan from analytics presented the performance
+projections - based on historical data and market research, he estimates we can
+achieve 2.1 million impressions with a 2.8% click-through rate. The conversion
+funnel shows 35% of visitors download the app, with 43% of downloaders becoming
+active users within 30 days. He's also identified 12 high-performing keywords
+for search campaigns.  Amanda from budget addressed the financial constraints
+- our Q3 marketing budget is $1.2 million, but we also need to allocate funds
+for traditional advertising, PR, and event marketing. She's concerned that the
+digital campaign budget represents 71% of total marketing spend, which is higher
+than industry average. She suggested reducing the budget to $650,000 to maintain
+balance across channels.  The heated discussion was around budget allocation and
+channel mix. Carlos argued that digital channels provide better ROI and targeting
+capabilities than traditional media. Jessica insisted on maintaining the influencer
+budget as it provides authentic reach to our target audience. Ryan advocated for
+increasing the Google Ads budget based on strong historical performance. Amanda
+cautioned against over-investing in digital channels without proven ROI.  Decision
+reached: Approved digital campaign budget of $750,000 with performance-based
+adjustments. Google Ads allocation increased to 45%, Facebook/Instagram reduced
+to 25%, LinkedIn maintained at 15%, and programmatic reduced to 15%. Action items:
+Carlos finalizes channel contracts by June 15th, Jessica begins creative production,
+Ryan establishes real-time performance monitoring, Amanda sets up budget tracking
+dashboards, Emily schedules weekly performance reviews." 
