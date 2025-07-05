@@ -87,6 +87,7 @@ class GoogleService:
     
     def generate_text_embeddings(self, text: str, chunk_size: Optional[int] = None) -> List[List[float]]:
         """Generate embeddings for text using Google's embedding model"""
+        logger.info(f"Generating embeddings for text: {text}")
         if not self.genai_configured:
             raise RuntimeError("Google Generative AI not configured")
         

@@ -8,6 +8,7 @@ uvicorn==0.24.0
 # Database and ORM
 sqlalchemy==2.0.23
 alembic==1.12.1
+psycopg2-binary==2.9.9  # PostgreSQL adapter
 
 # Pydantic and settings (fixed version conflicts)
 pydantic
@@ -15,6 +16,7 @@ pydantic-settings # Updated to satisfy langchain-community requirements
 
 # Environment and configuration (fixed version conflicts)
 python-dotenv==1.0.1  # Updated to satisfy pymilvus and llama-cloud-services
+python-dateutil==2.8.2
 
 # File handling
 aiofiles==23.2.1
@@ -31,8 +33,8 @@ ujson>=5.4.0
 # Numpy (fixed version conflicts)
 numpy>=1.21.0,<2.0.0  # Fixed to be compatible with matplotlib, numba, etc.
 
-# Pandas
-pandas>=1.3.0
+# Pandas (updated version)
+pandas==2.1.4  # Fixed version for consistency
 
 # Machine Learning and AI libraries
 torch>=1.12.0,<4.0  # Added to satisfy lightning, pytorch-lightning, sentence-transformers, torchmetrics
@@ -43,11 +45,11 @@ sentence-transformers>=2.0.0
 fsspec>=2021.06.0,<2025.0  # Fixed to satisfy lightning requirements
 
 # Testing dependencies
-pytest>=7.0.0
+pytest==7.4.3  # Fixed version for consistency
 pytest-asyncio>=0.21.0
 pytest-mock>=3.10.0
 coverage>=7.0.0
-pytest-cov>=4.0.0
+pytest-cov==4.1.0  # Fixed version for consistency
 
 # Document processing libraries
 PyPDF2>=3.0.0
@@ -66,4 +68,5 @@ pydub>=0.25.1
 # Additional utilities
 requests>=2.28.0
 httpx>=0.24.0
-typing-extensions>=4.5.0
+typing-extensions==4.12.0  # Fixed version to resolve conflicts
+pyyaml==6.0.1  # Configuration and logging support
