@@ -10,8 +10,8 @@ sqlalchemy==2.0.23
 alembic==1.12.1
 
 # Pydantic and settings (fixed version conflicts)
-pydantic==2.5.0
-pydantic-settings==2.4.0  # Updated to satisfy langchain-community requirements
+pydantic
+pydantic-settings # Updated to satisfy langchain-community requirements
 
 # Environment and configuration (fixed version conflicts)
 python-dotenv==1.0.1  # Updated to satisfy pymilvus and llama-cloud-services

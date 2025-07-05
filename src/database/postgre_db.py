@@ -478,3 +478,4 @@ class UniversityPostgreDB:
         if self.connection:
             self.connection.close()
             logger.info("Database connection closed")
+
