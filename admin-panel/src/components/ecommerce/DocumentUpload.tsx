@@ -168,6 +168,10 @@ export default function DocumentUpload() {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [],
       "text/markdown": [],
       "application/json": [],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "audio/wav": [".wav"],
+      "audio/mpeg": [".mp3"],
     },
     disabled: isUploading,
   });
@@ -305,7 +309,7 @@ export default function DocumentUpload() {
             </h4>
 
             <p className='text-base text-gray-500 dark:text-gray-400 mb-6 max-w-sm'>
-              PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, JSON files supported
+              PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, JSON, JPG, PNG, WAV, MP3 files supported
             </p>
 
             <span className={`text-base font-medium px-4 py-2 rounded-lg ${

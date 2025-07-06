@@ -37,8 +37,9 @@ from src.services.document_extractor import document_extractor
 from src.services.text_chunking import TextChunker, ChunkingStrategy, ChunkingConfig
 from src.utils.logging import setup_logging
 
-# Import StoreAgent and MetadataAdapter
+# Import StoreAgent, QueryAgent and MetadataAdapter
 from src.agents.store_agent import StoreAgent
+from src.agents.query_agent import QueryAgent
 from src.services.metadata_adapter import MetadataAdapter
 
 # Setup logging
@@ -73,6 +74,7 @@ google_service = None
 milvus_db = None
 text_chunker = None
 store_agent = None
+query_agent = None
 
 # Request/Response models
 class SearchRequest(BaseModel):
@@ -178,7 +180,7 @@ def determine_chunking_strategy(filename: str) -> ChunkingStrategy:
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global google_service, milvus_db, text_chunker, store_agent
+    global google_service, milvus_db, text_chunker, store_agent, query_agent
 
     try:
         # Initialize services
@@ -202,8 +204,22 @@ async def startup_event():
             description="Analyzes document content and generates intelligent tags"
         )
 
+        # Initialize QueryAgent
+        query_agent = QueryAgent(
+            name="QueryAgent",
+            description="Intelligent query agent with database connectors"
+        )
+        
+        # Connect QueryAgent to databases
+        query_agent_connected = query_agent.connect_databases()
+        if query_agent_connected:
+            logger.info("QueryAgent connected to databases successfully")
+        else:
+            logger.warning("QueryAgent partial connection - some features may be limited")
+
         logger.info("All services initialized successfully")
         logger.info(f"StoreAgent initialized with {len(store_agent.available_tags)} available tags")
+        logger.info(f"QueryAgent initialized with {len(query_agent.query_types)} query types")
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -219,9 +235,11 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    global milvus_db
+    global milvus_db, query_agent
     if milvus_db:
         milvus_db.disconnect()
+    if query_agent:
+        query_agent.disconnect_databases()
     logger.info("Services shutdown complete")
 
 @app.get("/health", response_model=HealthResponse)
@@ -245,8 +263,14 @@ async def health_check():
             agent_status = store_agent.get_status()
             store_agent_status = agent_status.get("is_active", False)
 
+        # Check QueryAgent
+        query_agent_status = False
+        if query_agent:
+            agent_status = query_agent.get_database_status()
+            query_agent_status = agent_status.get("agent_active", False)
+
         # Overall status
-        overall_status = "healthy" if (google_status and milvus_status and store_agent_status) else "unhealthy"
+        overall_status = "healthy" if (google_status and milvus_status and store_agent_status and query_agent_status) else "unhealthy"
 
         return HealthResponse(
             status=overall_status,
@@ -254,7 +278,8 @@ async def health_check():
                 "google_api": google_status,
                 "milvus": milvus_status,
                 "text_chunker": text_chunker is not None,
-                "store_agent": store_agent_status
+                "store_agent": store_agent_status,
+                "query_agent": query_agent_status
             },
             message="Service health check completed"
         )
@@ -626,13 +651,47 @@ async def process_document(
 
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(request: SearchRequest):
-    """Vector search for similar documents"""
+    """Intelligent search using QueryAgent for enhanced results"""
     try:
-        request.limit = 5
         logger.info(f"Search request received: query='{request.query[:50]}...', limit={request.limit}")
 
-        # Generate query embeddings
-        query_embeddings = google_service.generate_text_embeddings(request.query)
+        # Check if QueryAgent is available
+        if not query_agent:
+            logger.error("QueryAgent not initialized")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="QueryAgent service not available"
+            )
+
+        # Use QueryAgent for intelligent search
+        logger.info("Using QueryAgent for intelligent search processing")
+        agent_response = query_agent.process_query(request.query)
+        
+        # If QueryAgent fails, fall back to direct vector search
+        if not agent_response or "error" in agent_response.lower():
+            logger.warning("QueryAgent failed, falling back to direct vector search")
+            return await _fallback_vector_search(request)
+
+        # For API consistency, we need to extract search results from the agent response
+        # Since the QueryAgent returns a natural language response, we'll run a direct search
+        # but with the QueryAgent's analysis for better results
+        
+        # Get the query plan from QueryAgent for better search
+        query_plan = query_agent._analyze_query_with_llm(request.query)
+        search_intent = query_plan.get('search_intent', request.query)
+        
+        logger.info(f"QueryAgent analyzed query - search intent: {search_intent}")
+        
+        # Perform vector search with analyzed query
+        if not google_service or not milvus_db:
+            logger.error("Core services not available")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Core search services not available"
+            )
+
+        # Generate embeddings for the refined search intent
+        query_embeddings = google_service.generate_text_embeddings(search_intent)
 
         if not query_embeddings:
             logger.error("Failed to generate query embeddings")
@@ -641,64 +700,174 @@ async def search_documents(request: SearchRequest):
                 detail="Failed to generate query embeddings"
             )
 
-        logger.info(f"Generated embeddings for query, vector size: {len(query_embeddings[0])}")
+        logger.info(f"Generated embeddings for refined query, vector size: {len(query_embeddings[0])}")
 
-        # Search in Milvus
+        # Search in Milvus using the refined query
         results = milvus_db.vector_search(
             collection_name=request.collection_name,
             query_vector=query_embeddings[0],
             limit=request.limit
         )
 
-        logger.info(f"Search completed, found {len(results)} results")
+        logger.info(f"Enhanced search completed, found {len(results)} results")
 
-        # Simplify results for response
-        simplified_results = []
+        # Process results with QueryAgent insights
+        enhanced_results = []
+        specific_entities = query_plan.get('specific_entities', [])
+        
         for result in results:
-            simplified_result = {
+            # Extract metadata
+            metadata = result.get("metadata", {})
+            if isinstance(metadata, str):
+                import json
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {}
+            
+            # Enhance result with QueryAgent analysis
+            enhanced_result = {
                 "id": result.get("id"),
                 "score": result.get("score"),
                 "department": result.get("department"),
                 "content_type": result.get("content_type"),
-                "metadata": result.get("metadata", {})
+                "metadata": metadata,
+                "query_type": query_plan.get('query_type', 'general_query'),
+                "search_intent": search_intent,
+                "specific_entities": specific_entities,
+                "confidence": query_plan.get('confidence', 0.5)
             }
-            simplified_results.append(simplified_result)
+            enhanced_results.append(enhanced_result)
 
         return SearchResponse(
-            results=simplified_results,
+            results=enhanced_results,
             query=request.query,
-            total_results=len(simplified_results)
+            total_results=len(enhanced_results)
         )
 
     except Exception as e:
-        logger.error(f"Search failed: {e}")
+        logger.error(f"Enhanced search failed: {e}")
+        # Try fallback search
+        try:
+            return await _fallback_vector_search(request)
+        except Exception as fallback_error:
+            logger.error(f"Fallback search also failed: {fallback_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Search failed: {str(e)}"
+            )
+
+async def _fallback_vector_search(request: SearchRequest) -> SearchResponse:
+    """Fallback to direct vector search if QueryAgent fails"""
+    logger.info("Performing fallback vector search")
+    
+    # Generate query embeddings
+    query_embeddings = google_service.generate_text_embeddings(request.query)
+
+    if not query_embeddings:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Search failed: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to generate query embeddings"
+        )
+
+    # Search in Milvus
+    results = milvus_db.vector_search(
+        collection_name=request.collection_name,
+        query_vector=query_embeddings[0],
+        limit=request.limit
+    )
+
+    # Simplify results for response
+    simplified_results = []
+    for result in results:
+        simplified_result = {
+            "id": result.get("id"),
+            "score": result.get("score"),
+            "department": result.get("department"),
+            "content_type": result.get("content_type"),
+            "metadata": result.get("metadata", {})
+        }
+        simplified_results.append(simplified_result)
+
+    return SearchResponse(
+        results=simplified_results,
+        query=request.query,
+        total_results=len(simplified_results)
+    )
+
+@app.post("/api/query", response_model=ChatResponse)
+async def intelligent_query(chat_message: ChatMessage):
+    """Enhanced query endpoint using QueryAgent for natural language responses"""
+    try:
+        user_query = chat_message.message.strip()
+        logger.info(f"=== INTELLIGENT QUERY PROCESSING ===")
+        logger.info(f"User query: '{user_query}'")
+
+        if not user_query:
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+        # Check if QueryAgent is available
+        if not query_agent:
+            logger.error("QueryAgent not initialized")
+            return ChatResponse(
+                response="I'm sorry, the intelligent query service is not available right now. Please try again later.",
+                status="error"
+            )
+
+        # Process query using QueryAgent
+        logger.info("Processing query with QueryAgent...")
+        try:
+            response = query_agent.process_query(user_query)
+            logger.info("QueryAgent processing completed successfully")
+            
+            return ChatResponse(
+                response=response,
+                status="success"
+            )
+            
+        except Exception as agent_error:
+            logger.error(f"QueryAgent processing failed: {agent_error}")
+            return ChatResponse(
+                response="I encountered an error while processing your query. Please try rephrasing your question or try again later.",
+                status="error"
+            )
+
+    except Exception as e:
+        logger.error(f"=== INTELLIGENT QUERY ERROR ===")
+        logger.error(f"Error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return ChatResponse(
+            response="I encountered an error while processing your request. Please try again.",
+            status="error"
         )
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatMessage):
-    """Chat endpoint that uses vector search to find relevant documents"""
+    """Chat endpoint with intelligent fallback - uses QueryAgent if available, otherwise vector search"""
     try:
         user_message = chat_message.message.strip()
         logger.info(f"=== CHAT QUERY PROCESSING ===")
         logger.info(f"User message: '{user_message}'")
-        logger.info(f"Message length: {len(user_message)}")
 
         if not user_message:
             raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-        # Use search functionality to find relevant documents
-        search_request = SearchRequest(
-            query=user_message,
-            limit=3,  # Get top 3 most relevant results
-            collection_name="text_embeddings"
-        )
+        # Try QueryAgent first if available
+        if query_agent:
+            try:
+                logger.info("Using QueryAgent for chat response")
+                response = query_agent.process_query(user_message)
+                if response and "error" not in response.lower():
+                    return ChatResponse(response=response, status="success")
+                else:
+                    logger.warning("QueryAgent returned error or empty response, falling back to vector search")
+            except Exception as agent_error:
+                logger.warning(f"QueryAgent failed: {agent_error}, falling back to vector search")
 
-        logger.info(f"=== GENERATING EMBEDDINGS ===")
-        logger.info(f"Query for embeddings: '{user_message}'")
-
+        # Fallback to simple vector search
+        logger.info("=== FALLBACK: Using simple vector search ===")
+        
         # Generate query embeddings
         try:
             query_embeddings = google_service.generate_text_embeddings(user_message)
@@ -717,15 +886,7 @@ async def chat_endpoint(chat_message: ChatMessage):
                 status="error"
             )
 
-        logger.info(f"Generated embeddings - vector size: {len(query_embeddings[0])}")
-        logger.info(f"First 5 embedding values: {query_embeddings[0][:5]}")
-
         # Search in Milvus
-        logger.info(f"=== PERFORMING VECTOR SEARCH ===")
-        logger.info(f"Collection: text_embeddings")
-        logger.info(f"Query vector length: {len(query_embeddings[0])}")
-        logger.info(f"Search limit: 3")
-
         try:
             results = milvus_db.vector_search(
                 collection_name="text_embeddings",
@@ -740,9 +901,6 @@ async def chat_endpoint(chat_message: ChatMessage):
                 status="error"
             )
 
-        logger.info(f"=== SEARCH RESULTS ANALYSIS ===")
-        logger.info(f"Number of results returned: {len(results)}")
-
         if not results:
             logger.warning("No results returned from vector search")
             return ChatResponse(
@@ -750,40 +908,24 @@ async def chat_endpoint(chat_message: ChatMessage):
                 status="success"
             )
 
-        # Log each result in detail
-        for i, result in enumerate(results):
-            logger.info(f"--- Result {i+1} ---")
-            logger.info(f"Result keys: {list(result.keys())}")
-            logger.info(f"Result ID: {result.get('id')}")
-            logger.info(f"Result score: {result.get('score')}")
-            logger.info(f"Result department: {result.get('department')}")
-            logger.info(f"Result content_type: {result.get('content_type')}")
-
-            metadata = result.get("metadata", {})
-            logger.info(f"Metadata keys: {list(metadata.keys())}")
-            logger.info(f"Metadata filename: {metadata.get('filename')}")
-            logger.info(f"Metadata chunk_text: {metadata.get('chunk_text', 'NOT FOUND')[:100]}...")
-
-        # Generate response based on search results
-        logger.info(f"=== GENERATING RESPONSE ===")
+        # Generate simple response from search results
         response_parts = []
         response_parts.append(f"Based on the documents in our knowledge base, here's what I found:")
 
         results_added = 0
         for i, result in enumerate(results, 1):
-            logger.info(f"Processing result {i}")
             metadata = result.get("metadata", {})
+            if isinstance(metadata, str):
+                import json
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError:
+                    metadata = {}
+            
             score = result.get("score", 0)
-
-            # Extract relevant information from metadata
             filename = metadata.get("filename", "Unknown document")
             chunk_text = metadata.get("chunk_text", "")
             department = result.get("department", "General")
-
-            logger.info(f"Result {i} - filename: {filename}")
-            logger.info(f"Result {i} - chunk_text length: {len(chunk_text)}")
-            logger.info(f"Result {i} - department: {department}")
-            logger.info(f"Result {i} - score: {score}")
 
             if chunk_text and len(chunk_text.strip()) > 0:
                 response_parts.append(f"\n{i}. From {filename} (Department: {department}):")
@@ -791,29 +933,19 @@ async def chat_endpoint(chat_message: ChatMessage):
                 if score:
                     response_parts.append(f"   (Relevance: {score:.2f})")
                 results_added += 1
-                logger.info(f"Added result {i} to response")
-            else:
-                logger.warning(f"Result {i} has no chunk_text, skipping")
-
-        logger.info(f"Total results added to response: {results_added}")
 
         if results_added == 0:
-            logger.warning("No results had valid chunk_text")
             response = "I found some documents but couldn't extract readable content. The documents may need to be re-processed."
         else:
             response = "\n".join(response_parts)
-
-        logger.info(f"Final response length: {len(response)}")
-        logger.info(f"Final response preview: {response[:200]}...")
 
         return ChatResponse(response=response)
 
     except Exception as e:
         logger.error(f"=== CHAT ENDPOINT ERROR ===")
         logger.error(f"Error: {e}")
-        logger.error(f"Error type: {type(e).__name__}")
         import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return ChatResponse(
             response="I encountered an error while processing your request. Please try again.",
             status="error"

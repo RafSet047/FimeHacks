@@ -118,6 +118,7 @@ class QueryAgent(BaseAgent):
     """
     Main Query Agent with connectors to PostgreSQL and Milvus databases
     Uses LLM reasoning to understand queries and route to appropriate data sources
+    Supports conversation history for context-aware responses
     """
     
     def __init__(self, 
@@ -129,6 +130,9 @@ class QueryAgent(BaseAgent):
         # Initialize LLM
         self.llm = self._initialize_llm()
         
+        # Initialize Google service for embeddings
+        self.google_service = None
+        
         # Initialize database connectors
         self.postgres_connector = None
         self.milvus_connector = None
@@ -136,23 +140,116 @@ class QueryAgent(BaseAgent):
         # Query types configuration
         self.query_types = QUERY_TYPES_CONFIG
         
+        # Chat history for conversation context
+        self.chat_history: List[Dict[str, Any]] = []
+        self.max_history_length = 10  # Maximum conversation turns to keep
+        self.session_id = None
+        
         self.default_config = {
             'milvus_config': {
                 'host': 'localhost',
                 'port': 19530
             },
-            'default_collection': 'university_documents',
-            'max_search_results': 10
+            'default_collection': 'text_embeddings',
+            'max_search_results': 1,
+            'max_history_length': 1,
+            'include_history_in_analysis': True,
+            'include_history_in_response': True
         }
         
         self.config = {**self.default_config, **self.config}
         
+        # Update max history length from config
+        self.max_history_length = self.config.get('max_history_length', 10)
+        
         # Initialize connectors
         self._initialize_connectors()
+    
+    def add_to_history(self, user_query: str, agent_response: str, query_plan: Optional[Dict[str, Any]] = None) -> None:
+        """Add a conversation turn to chat history"""
+        try:
+            conversation_turn = {
+                'timestamp': datetime.now().isoformat(),
+                'user_query': user_query,
+                'agent_response': agent_response,
+                'query_plan': query_plan,
+                'session_id': self.session_id
+            }
+            
+            self.chat_history.append(conversation_turn)
+            
+            # Trim history if it exceeds max length
+            if len(self.chat_history) > self.max_history_length:
+                self.chat_history = self.chat_history[-self.max_history_length:]
+            
+            logger.info(f"Added conversation turn to history. Total history length: {len(self.chat_history)}")
+            
+        except Exception as e:
+            logger.error(f"Error adding to chat history: {e}")
+    
+    def get_chat_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get chat history, optionally limited to recent turns"""
+        try:
+            if limit is None:
+                return self.chat_history.copy()
+            return self.chat_history[-limit:] if limit > 0 else []
+        except Exception as e:
+            logger.error(f"Error getting chat history: {e}")
+            return []
+    
+    def clear_chat_history(self) -> None:
+        """Clear all chat history"""
+        try:
+            self.chat_history.clear()
+            logger.info("Chat history cleared")
+        except Exception as e:
+            logger.error(f"Error clearing chat history: {e}")
+    
+    def set_session_id(self, session_id: str) -> None:
+        """Set session ID for tracking conversation sessions"""
+        self.session_id = session_id
+        logger.info(f"Session ID set to: {session_id}")
+    
+    def get_relevant_history_context(self, current_query: str, max_turns: int = 3) -> str:
+        """Get relevant history context for the current query"""
+        try:
+            if not self.chat_history:
+                return ""
+            
+            # Get recent conversation turns
+            recent_history = self.chat_history[-max_turns:] if max_turns > 0 else self.chat_history
+            
+            if not recent_history:
+                return ""
+            
+            # Format history for context
+            history_parts = []
+            for i, turn in enumerate(recent_history, 1):
+                history_parts.append(f"Turn {i}:")
+                history_parts.append(f"  User: {turn['user_query']}")
+                history_parts.append(f"  Assistant: {turn['agent_response'][:200]}...")
+                if turn.get('query_plan'):
+                    history_parts.append(f"  Query Type: {turn['query_plan'].get('query_type', 'unknown')}")
+                history_parts.append("")
+            
+            return "\n".join(history_parts)
+            
+        except Exception as e:
+            logger.error(f"Error getting relevant history context: {e}")
+            return ""
     
     def _initialize_connectors(self):
         """Initialize database connectors"""
         try:
+            # Initialize Google service for embeddings
+            try:
+                from src.services.external_apis.google_service import get_google_service
+                self.google_service = get_google_service()
+                logger.info("Google service initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Google service: {e}")
+                self.google_service = None
+            
             # Initialize PostgreSQL connector with smart configuration loading
             postgres_config = self._load_postgres_config()
             self.postgres_connector = UniversityPostgreDB(postgres_config)
@@ -201,10 +298,25 @@ class QueryAgent(BaseAgent):
         return config
     
     def connect_databases(self) -> bool:
-        """Connect to both databases"""
+        """Connect to both databases and check Google service"""
         try:
             postgres_connected = False
             milvus_connected = False
+            google_available = False
+            
+            # Check Google service
+            try:
+                if self.google_service:
+                    status_info = self.google_service.get_service_status()
+                    google_available = status_info.get("genai_configured", False)
+                    if google_available:
+                        logger.info("✓ Google service available")
+                    else:
+                        logger.warning("✗ Google service not properly configured")
+                else:
+                    logger.warning("✗ Google service not initialized")
+            except Exception as e:
+                logger.error(f"✗ Google service error: {e}")
             
             # Try connecting to PostgreSQL
             try:
@@ -221,6 +333,8 @@ class QueryAgent(BaseAgent):
                 milvus_connected = self.milvus_connector.connect()
                 if milvus_connected:
                     logger.info("✓ Connected to Milvus successfully")
+                    # Create collections if needed
+                    self.milvus_connector.create_all_collections()
                 else:
                     logger.warning("✗ Failed to connect to Milvus")
             except Exception as e:
@@ -242,18 +356,18 @@ class QueryAgent(BaseAgent):
     
     def process_query(self, user_query: str) -> str:
         """
-        Main query processing method using LLM reasoning
+        Main query processing method using LLM reasoning with chat history support
         
         Args:
             user_query: The user's natural language query
             
         Returns:
-            Generated response based on retrieved data
+            Generated response based on retrieved data and conversation history
         """
         try:
-            logger.info(f"Processing query: {user_query}")
+            logger.info(f"Processing query with history context: {user_query}")
             
-            # 1. Use LLM to analyze query and create execution plan
+            # 1. Use LLM to analyze query and create execution plan (includes history)
             query_plan = self._analyze_query_with_llm(user_query)
             print("\tQuery Plan: ", query_plan)
             
@@ -261,22 +375,29 @@ class QueryAgent(BaseAgent):
             context_data = self._gather_context_data(user_query, query_plan)
             print("\tContext Data: ", context_data)
             
-            # 3. Generate response using LLM with gathered context
-            response = self._generate_response(user_query, context_data, query_plan)
+            # 3. Generate response using LLM with gathered context and history
+            response = self._generate_response_with_history(user_query, context_data, query_plan)
             
-            logger.info("Query processed successfully")
+            # 4. Add this conversation turn to history
+            self.add_to_history(user_query, response, query_plan)
+            
+            logger.info("Query processed successfully with history")
             return response
             
         except Exception as e:
             logger.error(f"Error processing query: {e}")
             self.handle_error(e, "query_processing")
-            return "I apologize, but I encountered an error processing your query. Please try again."
+            error_response = "I apologize, but I encountered an error processing your query. Please try again."
+            
+            # Still add error to history for context
+            self.add_to_history(user_query, error_response, None)
+            return error_response
     
     def _analyze_query_with_llm(self, query: str) -> Dict[str, Any]:
-        """Use LLM to analyze the query and determine execution plan"""
+        """Use LLM to analyze the query and determine execution plan with chat history context"""
         try:
-            # Build analysis prompt
-            analysis_prompt = self._build_analysis_prompt(query)
+            # Build analysis prompt with history context
+            analysis_prompt = self._build_analysis_prompt_with_history(query)
             
             # Get LLM analysis
             response = self.llm.generate_content(analysis_prompt)
@@ -301,15 +422,23 @@ class QueryAgent(BaseAgent):
                 'needs_vector_search': True,
                 'specific_entities': [],
                 'search_intent': query,
-                'confidence': 0.5
+                'confidence': 0.5,
+                'references_previous_conversation': False
             }
     
-    def _build_analysis_prompt(self, query: str) -> str:
-        """Build prompt for LLM query analysis"""
+    def _build_analysis_prompt_with_history(self, query: str) -> str:
+        """Build prompt for LLM query analysis including chat history context"""
         query_types_desc = "\n".join([
             f"- {qtype}: {config['description']}"
             for qtype, config in self.query_types.items()
         ])
+        
+        # Get relevant history context
+        history_context = ""
+        if self.config.get('include_history_in_analysis', True) and self.chat_history:
+            history_context = self.get_relevant_history_context(query, max_turns=3)
+            if history_context:
+                history_context = f"\n--- RECENT CONVERSATION HISTORY ---\n{history_context}\n"
         
         prompt = f"""
 You are a query analysis expert. Analyze the following user query and determine:
@@ -317,11 +446,12 @@ You are a query analysis expert. Analyze the following user query and determine:
 2. What data sources are needed
 3. Any specific entities or search terms mentioned
 4. The user's intent
+5. Whether the query references previous conversation
 
 Query Types Available:
 {query_types_desc}
-
-User Query: "{query}"
+{history_context}
+Current User Query: "{query}"
 
 Please respond in the following JSON format:
 {{
@@ -330,10 +460,13 @@ Please respond in the following JSON format:
     "needs_vector_search": true/false,
     "specific_entities": ["list of specific names, terms, or entities mentioned"],
     "search_intent": "what the user is trying to find or accomplish",
-    "confidence": 0.0-1.0
+    "confidence": 0.0-1.0,
+    "references_previous_conversation": true/false,
+    "conversation_context": "if referencing previous conversation, describe what aspect"
 }}
 
 Focus on understanding the user's intent and what data would best answer their question.
+Consider the conversation history to understand references like "that", "them", "the previous", etc.
 """
         return prompt
     
@@ -357,7 +490,9 @@ Focus on understanding the user's intent and what data would best answer their q
                     'needs_vector_search': analysis.get('needs_vector_search', True),
                     'specific_entities': analysis.get('specific_entities', []),
                     'search_intent': analysis.get('search_intent', ''),
-                    'confidence': analysis.get('confidence', 0.5)
+                    'confidence': analysis.get('confidence', 0.5),
+                    'references_previous_conversation': analysis.get('references_previous_conversation', False),
+                    'conversation_context': analysis.get('conversation_context', 'None')
                 }
             else:
                 # If no JSON found, try to parse key information
@@ -376,7 +511,9 @@ Focus on understanding the user's intent and what data would best answer their q
                     'needs_vector_search': 'document' in analysis_lower or 'search' in analysis_lower,
                     'specific_entities': [],
                     'search_intent': analysis_text[:100],
-                    'confidence': 0.3
+                    'confidence': 0.3,
+                    'references_previous_conversation': False,
+                    'conversation_context': ''
                 }
                 
         except Exception as e:
@@ -387,7 +524,9 @@ Focus on understanding the user's intent and what data would best answer their q
                 'needs_vector_search': True,
                 'specific_entities': [],
                 'search_intent': '',
-                'confidence': 0.2
+                'confidence': 0.2,
+                'references_previous_conversation': False,
+                'conversation_context': ''
             }
     
     def _gather_context_data(self, query: str, query_plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -400,14 +539,21 @@ Focus on understanding the user's intent and what data would best answer their q
         elif query_plan['needs_structured_data']:
             logger.warning("Structured data requested but PostgreSQL not connected")
         
-        # Gather vector search results if needed and Milvus is connected
-        if query_plan['needs_vector_search'] and self.milvus_connector and self.milvus_connector.is_connected:
-            context_data['documents'] = self._query_vector_data(query, query_plan)
-        elif query_plan['needs_vector_search']:
-            logger.warning("Vector search requested but Milvus not connected")
+        # Gather vector search results if needed and all services are available
+        if query_plan['needs_vector_search']:
+            if self.milvus_connector and self.milvus_connector.is_connected and self.google_service:
+                context_data['documents'] = self._query_vector_data(query, query_plan)
+            else:
+                missing_services = []
+                if not self.milvus_connector or not self.milvus_connector.is_connected:
+                    missing_services.append("Milvus")
+                if not self.google_service:
+                    missing_services.append("Google service")
+                logger.warning(f"Vector search requested but missing services: {', '.join(missing_services)}")
         
         return context_data
     
+    def _query_structured_data(self, query: str, query_plan: Dict[str, Any]) -> Dict[str, Any]:
         """Query PostgreSQL for structured data based on query plan"""
         try:
             logger.info("=== STARTING STRUCTURED DATA QUERY ===")
@@ -605,67 +751,113 @@ Focus on understanding the user's intent and what data would best answer their q
             return {}
     
     def _query_vector_data(self, query: str, query_plan: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Query Milvus for vector search results based on query plan"""
+        """Query Milvus for vector search results based on query plan using proper vector similarity"""
         try:
+            logger.info("=== STARTING VECTOR SEARCH ===")
+            logger.info(f"Query: {query}")
+            logger.info(f"Query plan: {query_plan}")
+            
             collection_name = self.config['default_collection']
             
-            # Get stored documents
-            documents = self.milvus_connector.get_stored_documents(
-                collection_name, 
-                limit=self.config['max_search_results']
-            )
-            
-            if not documents:
-                logger.info("No documents found in vector database")
+            # Check if Google service is available for embeddings
+            if not self.google_service:
+                logger.error("Google service not available for generating embeddings")
                 return []
             
-            # Use LLM-identified entities and search intent for better matching
-            search_terms = query_plan.get('specific_entities', [])
-            search_intent = query_plan.get('search_intent', query).lower()
+            # Use search intent if available, otherwise use original query
+            search_text = query_plan.get('search_intent', query).strip()
+            if not search_text:
+                search_text = query
             
-            # Score documents based on relevance
-            scored_documents = []
-            for doc in documents:
-                content = doc.get('content', '').lower()
-                tags = doc.get('tags', [])
-                
-                # Calculate relevance score
-                score = 0
-                
-                # Score based on specific entities
-                for entity in search_terms:
-                    if entity.lower() in content:
-                        score += 3
-                    if entity.lower() in ' '.join(tags).lower():
-                        score += 2
-                
-                # Score based on search intent keywords
-                intent_words = search_intent.split()
-                for word in intent_words:
-                    if len(word) > 3:  # Skip small words
-                        if word in content:
-                            score += 1
-                        if word in ' '.join(tags).lower():
-                            score += 1
-                
-                if score > 0:
-                    doc['relevance_score'] = score
-                    scored_documents.append(doc)
+            logger.info(f"Generating embeddings for: '{search_text}'")
             
-            # Sort by relevance score
-            scored_documents.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+            # Generate query embeddings using Google service
+            try:
+                query_embeddings = self.google_service.generate_text_embeddings(search_text)
+                logger.info("✓ Query embeddings generated successfully")
+            except Exception as embed_error:
+                logger.error(f"✗ Failed to generate embeddings: {embed_error}")
+                return []
             
-            return scored_documents[:self.config['max_search_results']]
+            if not query_embeddings:
+                logger.error("No embeddings returned from Google service")
+                return []
+            
+            logger.info(f"Embeddings generated - vector size: {len(query_embeddings[0])}")
+            
+            # Perform vector search using Milvus
+            logger.info(f"Performing vector search in collection: {collection_name}")
+            logger.info(f"Search limit: {self.config['max_search_results']}")
+            
+            try:
+                search_results = self.milvus_connector.vector_search(
+                    collection_name=collection_name,
+                    query_vector=query_embeddings[0],
+                    limit=self.config['max_search_results']
+                )
+                logger.info(f"✓ Vector search completed, found {len(search_results)} results")
+            except Exception as search_error:
+                logger.error(f"✗ Vector search failed: {search_error}")
+                return []
+            
+            if not search_results:
+                logger.info("No results returned from vector search")
+                return []
+            
+            # Process and enhance results
+            processed_results = []
+            for i, result in enumerate(search_results):
+                logger.info(f"Processing result {i+1}/{len(search_results)}")
+                
+                # Extract metadata
+                metadata = result.get("metadata", {})
+                if isinstance(metadata, str):
+                    import json
+                    try:
+                        metadata = json.loads(metadata)
+                    except json.JSONDecodeError:
+                        metadata = {}
+                
+                # Create enhanced result
+                enhanced_result = {
+                    "id": result.get("id"),
+                    "score": result.get("score", 0),
+                    "content": metadata.get("chunk_text", ""),
+                    "tags": metadata.get("tags", []),
+                    "filename": metadata.get("filename", "Unknown"),
+                    "department": result.get("department", "Unknown"),
+                    "content_type": result.get("content_type", "document"),
+                    "role": result.get("role", "unknown"),
+                    "organization_type": result.get("organization_type", "unknown"),
+                    "security_level": result.get("security_level", "internal"),
+                    "timestamp": result.get("timestamp"),
+                    "metadata": metadata,
+                    "relevance_score": result.get("score", 0)  # Use Milvus similarity score
+                }
+                
+                processed_results.append(enhanced_result)
+                
+                logger.info(f"  Result {i+1}: score={enhanced_result['score']:.4f}, content_length={len(enhanced_result['content'])}")
+            
+            # Sort by relevance score (highest first)
+            processed_results.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+            
+            logger.info(f"=== VECTOR SEARCH COMPLETED ===")
+            logger.info(f"Total results processed: {len(processed_results)}")
+            return processed_results
             
         except Exception as e:
-            logger.error(f"Error querying vector data: {e}")
+            logger.error(f"❌ CRITICAL ERROR in vector search: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return []
     
-    def _generate_response(self, query: str, context_data: Dict[str, Any], query_plan: Dict[str, Any]) -> str:
-        """Generate response using LLM with gathered context"""
+    def _generate_response_with_history(self, query: str, context_data: Dict[str, Any], query_plan: Dict[str, Any]) -> str:
+        """Generate response using LLM with gathered context and chat history"""
         try:
-            # Build prompt based on query plan and available data
-            prompt = self._build_response_prompt(query, context_data, query_plan)
+            # Build prompt based on query plan, available data, and history
+            prompt = self._build_response_prompt_with_history(query, context_data, query_plan)
             
             # Generate response
             response = self.llm.generate_content(prompt)
@@ -679,24 +871,37 @@ Focus on understanding the user's intent and what data would best answer their q
             logger.error(f"Error generating response: {e}")
             return "I apologize, but I encountered an error generating a response. Please try again."
     
-    def _build_response_prompt(self, query: str, context_data: Dict[str, Any], query_plan: Dict[str, Any]) -> str:
-        """Build prompt for response generation"""
+    def _build_response_prompt_with_history(self, query: str, context_data: Dict[str, Any], query_plan: Dict[str, Any]) -> str:
+        """Build prompt for response generation including chat history"""
         prompt_parts = []
         
         # System prompt with query context
         query_type_config = self.query_types.get(query_plan['query_type'], {})
         
-        # Check database availability
+        # Check database and service availability
         postgres_available = self.postgres_connector and hasattr(self.postgres_connector, 'connection') and self.postgres_connector.connection
         milvus_available = self.milvus_connector and self.milvus_connector.is_connected
+        google_available = bool(self.google_service)
         
         availability_note = ""
         if not postgres_available and not milvus_available:
             availability_note = "\n⚠️  Note: Both databases are currently unavailable. Limited information available."
         elif not postgres_available:
             availability_note = "\n⚠️  Note: Structured database (PostgreSQL) is unavailable. Statistical and detailed records may be limited."
-        elif not milvus_available:
-            availability_note = "\n⚠️  Note: Document database (Milvus) is unavailable. Document search and semantic information may be limited."
+        elif not milvus_available or not google_available:
+            missing_services = []
+            if not milvus_available:
+                missing_services.append("Milvus database")
+            if not google_available:
+                missing_services.append("Google service")
+            availability_note = f"\n⚠️  Note: {', '.join(missing_services)} unavailable. Document search and semantic information may be limited."
+        
+        # Add conversation history context
+        history_context = ""
+        if self.config.get('include_history_in_response', True) and self.chat_history:
+            history_context = self.get_relevant_history_context(query, max_turns=2)
+            if history_context:
+                history_context = f"\n--- CONVERSATION HISTORY ---\n{history_context}"
         
         prompt_parts.append(f"""You are a helpful university assistant. The user asked a {query_plan['query_type'].replace('_', ' ')} question.
 
@@ -704,13 +909,17 @@ Query Analysis:
 - Intent: {query_plan.get('search_intent', 'General inquiry')}
 - Confidence: {query_plan.get('confidence', 0.5)}
 - Specific entities mentioned: {query_plan.get('specific_entities', [])}
+- References previous conversation: {query_plan.get('references_previous_conversation', False)}
+- Conversation context: {query_plan.get('conversation_context', 'None')}
 
 Instructions:
 - Answer the user's question accurately using the provided data
+- Consider the conversation history to understand references and provide continuity
+- If the query references previous conversation, acknowledge and build upon that context
 - If specific entities were mentioned, focus on those
 - Be comprehensive but concise
 - If you don't have enough information, say so clearly
-- Format your response in a clear, organized manner{availability_note}""")
+- Format your response in a clear, organized manner{availability_note}{history_context}""")
         
         # Add structured data context if available
         if 'structured_data' in context_data and context_data['structured_data']:
@@ -732,28 +941,73 @@ Instructions:
                 prompt_parts.append("")
         
         # Add user query
-        prompt_parts.append(f"\n--- USER QUESTION ---")
+        prompt_parts.append(f"\n--- CURRENT USER QUESTION ---")
         prompt_parts.append(f"Question: {query}")
-        prompt_parts.append(f"\nPlease provide a comprehensive answer based on the available data:")
+        prompt_parts.append(f"\nPlease provide a comprehensive answer based on the available data and conversation context:")
         
         return "\n".join(prompt_parts)
     
+    def get_conversation_summary(self) -> str:
+        """Get a summary of the current conversation"""
+        try:
+            if not self.chat_history:
+                return "No conversation history available."
+            
+            summary_parts = []
+            summary_parts.append(f"Conversation Summary ({len(self.chat_history)} turns):")
+            summary_parts.append(f"Session ID: {self.session_id or 'Not set'}")
+            summary_parts.append("")
+            
+            for i, turn in enumerate(self.chat_history, 1):
+                timestamp = turn.get('timestamp', 'Unknown time')
+                query_type = turn.get('query_plan', {}).get('query_type', 'unknown')
+                summary_parts.append(f"Turn {i} ({timestamp}):")
+                summary_parts.append(f"  Query Type: {query_type}")
+                summary_parts.append(f"  User: {turn['user_query'][:100]}...")
+                summary_parts.append(f"  Response: {turn['agent_response'][:100]}...")
+                summary_parts.append("")
+            
+            return "\n".join(summary_parts)
+            
+        except Exception as e:
+            logger.error(f"Error generating conversation summary: {e}")
+            return "Error generating conversation summary."
+    
     def get_database_status(self) -> Dict[str, Any]:
-        """Get status of database connections"""
+        """Get status of database connections and services including chat history info"""
         postgres_connected = self.postgres_connector and hasattr(self.postgres_connector, 'connection') and self.postgres_connector.connection
         milvus_connected = self.milvus_connector and self.milvus_connector.is_connected
+        
+        # Check Google service status
+        google_available = False
+        if self.google_service:
+            try:
+                status_info = self.google_service.get_service_status()
+                google_available = status_info.get("genai_configured", False)
+            except Exception:
+                google_available = False
         
         return {
             'postgres_connected': postgres_connected,
             'milvus_connected': milvus_connected,
+            'google_service_available': google_available,
             'postgres_config_source': 'database_config.py' if postgres_connected else 'default/failed',
             'agent_active': self.is_active,
             'error_count': self.error_count,
             'query_types_configured': len(self.query_types),
+            'chat_history': {
+                'total_turns': len(self.chat_history),
+                'max_history_length': self.max_history_length,
+                'current_session_id': self.session_id,
+                'history_enabled': True,
+                'include_history_in_analysis': self.config.get('include_history_in_analysis', True),
+                'include_history_in_response': self.config.get('include_history_in_response', True)
+            },
             'functionality_status': {
                 'structured_queries': postgres_connected,
-                'document_search': milvus_connected,
-                'full_functionality': postgres_connected and milvus_connected
+                'document_search': milvus_connected and google_available,
+                'conversation_history': True,
+                'full_functionality': postgres_connected and milvus_connected and google_available
             }
         }
     
